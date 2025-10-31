@@ -115,6 +115,7 @@ Server runs on `http://localhost:8765`
 ## ?? Documentation
 
 - **[SETUP.md](./SETUP.md)** - Complete installation and configuration guide
+- **[ADMIN_PANEL_GUIDE.md](./ADMIN_PANEL_GUIDE.md)** - Admin Panel user guide
 - **[FLUTTER_DEVELOPMENT.md](./FLUTTER_DEVELOPMENT.md)** - Flutter/Android app development guide
 - **[API_DOCS.md](./API_DOCS.md)** - Complete API documentation
 
