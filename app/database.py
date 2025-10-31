@@ -136,6 +136,12 @@ async def create_indexes():
         await mongodb.db.admins.create_index("role")
         await mongodb.db.admins.create_index("device_token", unique=True)
         await mongodb.db.admins.create_index("telegram_2fa_chat_id")
+        
+        # OTP Codes (2FA)
+        await mongodb.db.otp_codes.create_index([("username", ASCENDING), ("used", ASCENDING)])
+        await mongodb.db.otp_codes.create_index([("username", ASCENDING), ("otp_code", ASCENDING)])
+        await mongodb.db.otp_codes.create_index("expires_at", expireAfterSeconds=3600)  # Auto-delete after 1 hour
+        await mongodb.db.otp_codes.create_index("created_at")
 
         await mongodb.db.admin_activities.create_index([("admin_username", ASCENDING), ("timestamp", DESCENDING)])
         await mongodb.db.admin_activities.create_index("activity_type")

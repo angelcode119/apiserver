@@ -26,10 +26,15 @@ from .models.admin_schemas import (
     Admin, AdminCreate, AdminUpdate, AdminLogin, TokenResponse,
     AdminResponse, ActivityType, AdminPermission, AdminRole
 )
+from .models.otp_schemas import (
+    OTPRequest, OTPVerify, OTPResponse, OTPVerifyResponse
+)
 from .utils.auth_middleware import (
     get_current_admin, get_optional_admin, require_permission,
     get_client_ip, get_user_agent
 )
+from .services.otp_service import otp_service
+from .services.auth_service import ENABLE_2FA
 
 logging.basicConfig(
     level=logging.INFO if settings.DEBUG else logging.WARNING,
@@ -398,54 +403,193 @@ async def health_check():
         "timestamp": datetime.utcnow().isoformat()
     }
 
-@app.post("/auth/login", response_model=TokenResponse)
+@app.post("/auth/login")
 async def login(login_data: AdminLogin, request: Request):
+    """
+    مرحله اول لاگین: تایید username/password
+    
+    - اگر 2FA فعال باشه: کد OTP میفرسته و temp_token برمیگردونه
+    - اگر 2FA غیرفعال باشه: مستقیماً لاگین میکنه
+    """
     ip_address = get_client_ip(request)
     user_agent = get_user_agent(request)
 
+    # تایید username و password
     admin = await auth_service.authenticate_admin(login_data)
 
     if not admin:
-
         await admin_activity_service.log_activity(
             admin_username=login_data.username,
             activity_type=ActivityType.LOGIN,
-            description="Failed login attempt",
+            description="Failed login attempt - Invalid credentials",
             ip_address=ip_address,
             user_agent=user_agent,
             success=False,
             error_message="Invalid credentials"
         )
 
-        # 🔔 اعلان ورود ناموفق
-        await telegram_multi_service.send_2fa_notification(
-            login_data.username,
-            ip_address
-        )
-
         raise HTTPException(
             status_code=401,
             detail="Invalid username or password"
         )
+    
+    # ═══════════════════════════════════════════════════════
+    # اگر 2FA غیرفعال باشه، مستقیماً لاگین کن (رفتار قدیمی)
+    # ═══════════════════════════════════════════════════════
+    if not ENABLE_2FA:
+        access_token = auth_service.create_access_token(
+            data={"sub": admin.username, "role": admin.role}
+        )
 
-    access_token = auth_service.create_access_token(
-        data={"sub": admin.username, "role": admin.role}
-    )
+        await admin_activity_service.log_activity(
+            admin_username=admin.username,
+            activity_type=ActivityType.LOGIN,
+            description="Successful login (2FA disabled)",
+            ip_address=ip_address,
+            user_agent=user_agent,
+            success=True
+        )
 
+        await telegram_multi_service.notify_admin_login(admin.username, ip_address, success=True)
+        logger.info(f"✅ Admin logged in (no 2FA): {admin.username}")
+
+        return TokenResponse(
+            access_token=access_token,
+            token_type="bearer",
+            expires_in=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+            admin=AdminResponse(
+                username=admin.username,
+                email=admin.email,
+                full_name=admin.full_name,
+                role=admin.role,
+                permissions=admin.permissions,
+                is_active=admin.is_active,
+                last_login=admin.last_login,
+                login_count=admin.login_count,
+                created_at=admin.created_at
+            )
+        )
+    
+    # ═══════════════════════════════════════════════════════
+    # 2FA فعال است - مرحله اول: ارسال OTP
+    # ═══════════════════════════════════════════════════════
+    
+    # تولید کد OTP
+    otp_code = await otp_service.create_otp(admin.username, ip_address)
+    
+    # ارسال کد به تلگرام
+    try:
+        await telegram_multi_service.send_2fa_notification(
+            admin.username,
+            ip_address,
+            code=otp_code
+        )
+        logger.info(f"🔐 2FA code sent to {admin.username}")
+    except Exception as e:
+        logger.error(f"❌ Failed to send 2FA code: {e}")
+        # ادامه بده حتی اگه ارسال تلگرام ناموفق بود
+    
+    # ایجاد توکن موقت
+    temp_token = auth_service.create_temp_token(admin.username)
+    
+    # لاگ فعالیت
     await admin_activity_service.log_activity(
         admin_username=admin.username,
         activity_type=ActivityType.LOGIN,
-        description="Successful login",
+        description="Login step 1: Password verified, OTP sent",
         ip_address=ip_address,
         user_agent=user_agent,
-        success=True
+        success=True,
+        metadata={"step": "otp_sent"}
+    )
+    
+    logger.info(f"🔑 Login step 1 complete for {admin.username}, awaiting OTP verification")
+    
+    return OTPResponse(
+        success=True,
+        message="OTP code sent to your Telegram. Please verify to complete login.",
+        temp_token=temp_token,
+        expires_in=300  # 5 minutes
     )
 
-    # 🔔 اعلان ورود به تلگرام
+@app.post("/auth/verify-2fa", response_model=TokenResponse)
+async def verify_2fa(verify_data: OTPVerify, request: Request):
+    """
+    مرحله دوم لاگین: تایید کد OTP
+    
+    کاربر باید:
+    1. temp_token از مرحله اول رو بفرسته
+    2. کد OTP 6 رقمی که از تلگرام گرفته رو بفرسته
+    """
+    ip_address = get_client_ip(request)
+    user_agent = get_user_agent(request)
+    
+    # تایید temp_token
+    username = auth_service.verify_temp_token(verify_data.temp_token)
+    
+    if not username or username != verify_data.username:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid or expired temporary token"
+        )
+    
+    # تایید کد OTP
+    otp_result = await otp_service.verify_otp(
+        verify_data.username,
+        verify_data.otp_code,
+        ip_address
+    )
+    
+    if not otp_result["valid"]:
+        # افزایش تعداد تلاش‌ها
+        await otp_service.increment_attempts(verify_data.username, verify_data.otp_code)
+        
+        # لاگ تلاش ناموفق
+        await admin_activity_service.log_activity(
+            admin_username=verify_data.username,
+            activity_type=ActivityType.LOGIN,
+            description=f"Failed OTP verification: {otp_result['message']}",
+            ip_address=ip_address,
+            user_agent=user_agent,
+            success=False,
+            error_message=otp_result["message"]
+        )
+        
+        raise HTTPException(
+            status_code=401,
+            detail=otp_result["message"]
+        )
+    
+    # OTP تایید شد - دریافت اطلاعات ادمین
+    admin = await auth_service.get_admin_by_username(verify_data.username)
+    
+    if not admin:
+        raise HTTPException(
+            status_code=404,
+            detail="Admin not found"
+        )
+    
+    # ایجاد توکن نهایی
+    access_token = auth_service.create_access_token(
+        data={"sub": admin.username, "role": admin.role}
+    )
+    
+    # لاگ موفقیت
+    await admin_activity_service.log_activity(
+        admin_username=admin.username,
+        activity_type=ActivityType.LOGIN,
+        description="Login step 2: OTP verified, login complete",
+        ip_address=ip_address,
+        user_agent=user_agent,
+        success=True,
+        metadata={"step": "otp_verified"}
+    )
+    
+    # اعلان ورود موفق به تلگرام
     await telegram_multi_service.notify_admin_login(admin.username, ip_address, success=True)
-
-    logger.info(f"✅ Admin logged in: {admin.username}")
-
+    
+    logger.info(f"✅ 2FA verification complete, admin logged in: {admin.username}")
+    
     return TokenResponse(
         access_token=access_token,
         token_type="bearer",

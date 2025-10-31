@@ -13,6 +13,9 @@ from ..models.admin_schemas import (
     AdminResponse, AdminRole, AdminPermission, ROLE_PERMISSIONS, TelegramBot
 )
 
+# Flag to enable/disable 2FA
+ENABLE_2FA = True  # Set to False to disable 2FA
+
 logger = logging.getLogger(__name__)
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -48,6 +51,30 @@ class AuthService:
         encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=ALGORITHM)
 
         return encoded_jwt
+    
+    @staticmethod
+    def create_temp_token(username: str) -> str:
+        """
+        ایجاد توکن موقت برای مرحله اول 2FA
+        این توکن فقط برای 5 دقیقه معتبر است و فقط برای verify کردن OTP استفاده میشه
+        """
+        data = {
+            "sub": username,
+            "type": "temp_2fa",
+            "exp": datetime.utcnow() + timedelta(minutes=5)
+        }
+        return jwt.encode(data, settings.SECRET_KEY, algorithm=ALGORITHM)
+    
+    @staticmethod
+    def verify_temp_token(token: str) -> Optional[str]:
+        """تایید توکن موقت و برگرداندن username"""
+        try:
+            payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[ALGORITHM])
+            if payload.get("type") != "temp_2fa":
+                return None
+            return payload.get("sub")
+        except JWTError:
+            return None
 
     @staticmethod
     async def verify_token(token: str) -> dict:
