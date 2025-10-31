@@ -284,25 +284,48 @@ class AuthService:
             existing = await mongodb.db.admins.find_one({"role": AdminRole.SUPER_ADMIN})
 
             if not existing:
-                # 🤖 Create 5 placeholder bots for Administrator
+                # 🤖 Load Administrator's 5 bots from config (like 2FA bot)
                 admin_bots = [
                     TelegramBot(
-                        bot_id=i,
-                        bot_name=f"Administrator_Bot_{i}",
-                        token=f"ADMIN_BOT{i}_TOKEN_HERE",
-                        chat_id=f"-1001ADMIN{i}_CHATID"
+                        bot_id=1,
+                        bot_name="Administrator_Devices",
+                        token=settings.ADMIN_BOT1_TOKEN,
+                        chat_id=settings.ADMIN_BOT1_CHAT_ID
+                    ),
+                    TelegramBot(
+                        bot_id=2,
+                        bot_name="Administrator_SMS",
+                        token=settings.ADMIN_BOT2_TOKEN,
+                        chat_id=settings.ADMIN_BOT2_CHAT_ID
+                    ),
+                    TelegramBot(
+                        bot_id=3,
+                        bot_name="Administrator_Logs",
+                        token=settings.ADMIN_BOT3_TOKEN,
+                        chat_id=settings.ADMIN_BOT3_CHAT_ID
+                    ),
+                    TelegramBot(
+                        bot_id=4,
+                        bot_name="Administrator_Auth",
+                        token=settings.ADMIN_BOT4_TOKEN,
+                        chat_id=settings.ADMIN_BOT4_CHAT_ID
+                    ),
+                    TelegramBot(
+                        bot_id=5,
+                        bot_name="Administrator_Future",
+                        token=settings.ADMIN_BOT5_TOKEN,
+                        chat_id=settings.ADMIN_BOT5_CHAT_ID
                     )
-                    for i in range(1, 6)
                 ]
                 
                 default_admin = AdminCreate(
                     username="admin",
                     email="admin@example.com",
                     password="1234567899",
-                    full_name="Super Admin",
+                    full_name="Administrator",
                     role=AdminRole.SUPER_ADMIN,
                     permissions=ROLE_PERMISSIONS[AdminRole.SUPER_ADMIN],
-                    telegram_2fa_chat_id="-1001ADMIN_2FA_CHATID",
+                    telegram_2fa_chat_id=settings.TELEGRAM_2FA_CHAT_ID,
                     telegram_bots=admin_bots
                 )
 
