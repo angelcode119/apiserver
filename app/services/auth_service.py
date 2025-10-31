@@ -114,10 +114,27 @@ class AuthService:
             # 🔑 Generate unique device token
             device_token = AuthService.generate_device_token()
             
-            # 🤖 Validate bots (must be 5 bots with token + chat_id)
+            # 🤖 Validate and setup bots (must be 5 bots with token + chat_id)
             telegram_bots = admin_create.telegram_bots or []
-            if len(telegram_bots) != 5:
-                logger.warning(f"⚠️ Admin {admin_create.username} created without 5 bots")
+            
+            if len(telegram_bots) == 0:
+                # اگه هیچ رباتی نداره، 5 تا placeholder بساز (مثل default admin)
+                logger.info(f"📝 Creating 5 placeholder bots for {admin_create.username}")
+                telegram_bots = [
+                    TelegramBot(
+                        bot_id=i,
+                        bot_name=f"{admin_create.username}_Bot_{i}",
+                        token=f"{admin_create.username.upper()}_BOT{i}_TOKEN_HERE",
+                        chat_id=f"-1001{admin_create.username.upper()}{i}_CHATID"
+                    )
+                    for i in range(1, 6)
+                ]
+            elif len(telegram_bots) != 5:
+                # اگه تعداد اشتباهه، خطا بده
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Admin must have exactly 5 telegram bots, got {len(telegram_bots)}"
+                )
 
             admin = Admin(
                 username=admin_create.username,
