@@ -1,6 +1,6 @@
 from pydantic_settings import BaseSettings
 from pydantic import ConfigDict
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 
 class Settings(BaseSettings):
 
@@ -20,6 +20,10 @@ class Settings(BaseSettings):
     TELEGRAM_2FA_CHAT_ID: Optional[str] = "-1002FA_CHAT_ID"
     
     TELEGRAM_ENABLED: bool = True
+    
+    # Multi-Bot Configuration
+    # ?? ????? ??????? ???? ????? ???? ?? ????? ????
+    TELEGRAM_BOTS: List[Dict[str, Any]] = []
 
     PING_INTERVAL: int = 30
     CONNECTION_TIMEOUT: int = 60
