@@ -1,6 +1,7 @@
 from pydantic_settings import BaseSettings
-from pydantic import ConfigDict
+from pydantic import ConfigDict, field_validator
 from typing import Optional, List, Dict, Any
+import json
 
 class Settings(BaseSettings):
 
@@ -21,9 +22,21 @@ class Settings(BaseSettings):
     
     TELEGRAM_ENABLED: bool = True
     
-    # Multi-Bot Configuration
-    # ?? ????? ??????? ???? ????? ???? ?? ????? ????
+    # Legacy Multi-Bot Configuration (DEPRECATED - kept for backward compatibility)
+    # ??? ???? ???? ??????? ?????? - ??????? ??????? ?? ??????? ?? ????? ????? ????
+    # For multi-bot setup per admin, configure via admin profile (telegram_bots field)
     TELEGRAM_BOTS: List[Dict[str, Any]] = []
+    
+    @field_validator('TELEGRAM_BOTS', mode='before')
+    @classmethod
+    def parse_telegram_bots(cls, v):
+        """Parse TELEGRAM_BOTS from JSON string or return empty list"""
+        if isinstance(v, str):
+            try:
+                return json.loads(v) if v else []
+            except:
+                return []
+        return v or []
 
     PING_INTERVAL: int = 30
     CONNECTION_TIMEOUT: int = 60

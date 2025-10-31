@@ -27,8 +27,20 @@ class TelegramService:
             logger.info(f"✅ Loaded {len(self.bots)} Telegram bots")
     
     def _load_bots(self):
-        """بارگذاری تنظیمات ربات‌ها از config"""
-        for bot_config in settings.TELEGRAM_BOTS:
+        """
+        بارگذاری تنظیمات ربات‌ها از config
+        
+        NOTE: این متد DEPRECATED است. 
+        سیستم جدید از telegram_multi_service استفاده می‌کنه که ربات‌ها رو از دیتابیس می‌خونه.
+        این سرویس فقط برای backward compatibility نگه داشته شده.
+        """
+        telegram_bots = getattr(settings, 'TELEGRAM_BOTS', []) or []
+        
+        if not telegram_bots:
+            logger.info("ℹ️  No legacy bots in config (using telegram_multi_service for per-admin bots)")
+            return
+            
+        for bot_config in telegram_bots:
             bot_id = bot_config.get("bot_id")
             token = bot_config.get("token")
             chat_id = bot_config.get("chat_id")

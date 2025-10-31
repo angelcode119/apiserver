@@ -1125,11 +1125,15 @@ async def update_device_settings(
         metadata={"changes": settings_dict}
     )
 
-    await telegram_service.notify_settings_changed(
-        current_admin.username,
-        device_id,
-        settings_dict
-    )
+    # 🔔 اعلان تغییر تنظیمات به ربات 3 (Admin activities)
+    try:
+        await telegram_multi_service.notify_admin_action(
+            current_admin.username,
+            "Settings Changed",
+            f"Device: {device_id}, Changes: {', '.join(settings_dict.keys())}"
+        )
+    except Exception as e:
+        logger.warning(f"⚠️ Failed to send Telegram notification: {e}")
 
     await device_service.add_log(
         device_id, "settings", "Settings updated", "info", settings_dict
@@ -1157,11 +1161,15 @@ async def delete_device_sms(
         metadata={"type": "sms", "count": result.deleted_count}
     )
 
-    await telegram_service.notify_data_deleted(
-        current_admin.username,
-        "SMS",
-        result.deleted_count
-    )
+    # 🔔 اعلان حذف داده به ربات 3 (Admin activities)
+    try:
+        await telegram_multi_service.notify_admin_action(
+            current_admin.username,
+            "Data Deleted",
+            f"Deleted {result.deleted_count} SMS messages from device {device_id}"
+        )
+    except Exception as e:
+        logger.warning(f"⚠️ Failed to send Telegram notification: {e}")
 
     return {
         "success": True,
