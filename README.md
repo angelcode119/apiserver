@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # ?? Android Control System
 
 Multi-admin Android device monitoring and control system with Telegram bot integration.
@@ -256,3 +257,6 @@ For setup help and troubleshooting, see:
 ---
 
 **Built with ?? using FastAPI and Python**
+=======
+# apiserver
+>>>>>>> b51b4916098f530a30dc5e298e6f2c82b0792e65
