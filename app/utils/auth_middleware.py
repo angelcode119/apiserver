@@ -30,9 +30,17 @@ async def get_current_admin(
             detail="Admin account is disabled"
         )
     
-    # Single Session Control: Check if session is still valid
-    if token_session_id and admin.current_session_id:
+    # Single Session Control: Strict validation
+    # If admin has a current_session_id, token MUST have matching session_id
+    if admin.current_session_id:
+        if not token_session_id:
+            # Old token without session_id - reject it
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Session expired. Please login again."
+            )
         if token_session_id != admin.current_session_id:
+            # Session mismatch - another login detected
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Session expired. Another login detected from different location."
