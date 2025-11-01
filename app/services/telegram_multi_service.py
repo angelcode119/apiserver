@@ -126,19 +126,30 @@ class TelegramMultiService:
         self,
         admin_username: str,
         ip_address: str,
-        code: Optional[str] = None
+        code: Optional[str] = None,
+        message_prefix: Optional[str] = None
     ) -> bool:
-        """Send 2FA notification to 2FA bot"""
+        """
+        Send 2FA notification to 2FA bot
+        
+        Args:
+            admin_username: Admin username
+            ip_address: IP address  
+            code: OTP code
+            message_prefix: Optional custom prefix (e.g., for bot auth)
+        """
         if not self.twofa_bot_token or "TOKEN_HERE" in self.twofa_bot_token:
             logger.warning("??  2FA Bot not configured")
             return False
         
-        message = f"""
-?? <b>Two-Factor Authentication</b>
-
-?? Admin: <code>{admin_username}</code>
-?? IP: <code>{ip_address}</code>
-"""
+        # Build message with optional prefix
+        if message_prefix:
+            message = message_prefix
+        else:
+            message = "?? <b>Two-Factor Authentication</b>\n\n"
+        
+        message += f"?? Admin: <code>{admin_username}</code>\n"
+        message += f"?? IP: <code>{ip_address}</code>\n"
         
         if code:
             message += f"?? Code: <code>{code}</code>\n"
