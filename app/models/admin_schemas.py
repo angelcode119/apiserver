@@ -64,6 +64,11 @@ class Admin(BaseModel):
 
     last_login: Optional[datetime] = None
     login_count: int = 0
+    
+    # Single Session Control
+    current_session_id: Optional[str] = None  # Only one active session per admin
+    last_session_ip: Optional[str] = None
+    last_session_device: Optional[str] = None
 
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)

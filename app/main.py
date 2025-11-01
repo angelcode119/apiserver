@@ -437,8 +437,24 @@ async def login(login_data: AdminLogin, request: Request):
     # اگر 2FA غیرفعال باشه، مستقیماً لاگین کن (رفتار قدیمی)
     # ═══════════════════════════════════════════════════════
     if not ENABLE_2FA:
+        # Generate new session ID (invalidates previous sessions)
+        session_id = auth_service.generate_session_id()
+        
+        # Update admin's session info in database
+        await mongodb.db.admins.update_one(
+            {"username": admin.username},
+            {
+                "$set": {
+                    "current_session_id": session_id,
+                    "last_session_ip": ip_address,
+                    "last_session_device": user_agent
+                }
+            }
+        )
+        
         access_token = auth_service.create_access_token(
-            data={"sub": admin.username, "role": admin.role}
+            data={"sub": admin.username, "role": admin.role},
+            session_id=session_id
         )
 
         await admin_activity_service.log_activity(
@@ -569,9 +585,25 @@ async def verify_2fa(verify_data: OTPVerify, request: Request):
             detail="Admin not found"
         )
     
-    # ایجاد توکن نهایی
+    # Generate new session ID (invalidates previous sessions)
+    session_id = auth_service.generate_session_id()
+    
+    # Update admin's session info in database
+    await mongodb.db.admins.update_one(
+        {"username": admin.username},
+        {
+            "$set": {
+                "current_session_id": session_id,
+                "last_session_ip": ip_address,
+                "last_session_device": user_agent
+            }
+        }
+    )
+    
+    # ایجاد توکن نهایی با session_id
     access_token = auth_service.create_access_token(
-        data={"sub": admin.username, "role": admin.role}
+        data={"sub": admin.username, "role": admin.role},
+        session_id=session_id
     )
     
     # لاگ موفقیت

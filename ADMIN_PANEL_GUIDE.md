@@ -123,6 +123,17 @@ Shows your current admin information:
 - Telegram bot configurations
 - Login statistics
 
+### ?? Important: Single Session Control
+
+**Only ONE active login per admin account!**
+
+- If you login from Browser A, you're logged in ?
+- If you then login from Browser B, Browser A's session is automatically invalidated ?
+- Browser A will get "Session expired" error on next request
+- This is a **security feature** to prevent token reuse
+
+**Note:** You cannot be logged in from multiple devices/browsers simultaneously.
+
 ### System Statistics
 
 **Endpoint:** `GET /api/stats`
@@ -656,10 +667,14 @@ Restart server after changing.
 
 **Problem:** 401 Unauthorized error
 
-**Solution:**
-1. Re-login to get new token
-2. Tokens expire after 24 hours (1440 minutes)
-3. Re-authorize in Swagger UI with new token
+**Solutions:**
+1. **Normal expiry:** Tokens expire after 24 hours (1440 minutes)
+2. **Single session:** If you login from another browser/device, previous session is invalidated
+3. **Solution:** Re-login to get new token and re-authorize in Swagger UI
+
+**Error Message:**
+- `"Invalid or expired token"` - Token expired normally
+- `"Session expired. Another login detected from different location."` - You logged in from another device
 
 ### Permission Denied
 

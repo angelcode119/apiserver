@@ -39,7 +39,12 @@ class AuthService:
         return secrets.token_urlsafe(32)
 
     @staticmethod
-    def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
+    def generate_session_id() -> str:
+        """Generate unique session ID for single session control"""
+        return secrets.token_urlsafe(32)
+    
+    @staticmethod
+    def create_access_token(data: dict, expires_delta: Optional[timedelta] = None, session_id: str = None) -> str:
         to_encode = data.copy()
 
         if expires_delta:
@@ -48,6 +53,11 @@ class AuthService:
             expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
 
         to_encode.update({"exp": expire})
+        
+        # Add session_id for single session control
+        if session_id:
+            to_encode.update({"session_id": session_id})
+        
         encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=ALGORITHM)
 
         return encoded_jwt

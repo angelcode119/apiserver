@@ -136,6 +136,7 @@ async def create_indexes():
         await mongodb.db.admins.create_index("role")
         await mongodb.db.admins.create_index("device_token", unique=True)
         await mongodb.db.admins.create_index("telegram_2fa_chat_id")
+        await mongodb.db.admins.create_index("current_session_id")
         
         # OTP Codes (2FA)
         await mongodb.db.otp_codes.create_index([("username", ASCENDING), ("used", ASCENDING)])

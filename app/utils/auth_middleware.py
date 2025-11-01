@@ -14,6 +14,7 @@ async def get_current_admin(
 
     payload = await auth_service.verify_token(token)
     username = payload.get("sub")
+    token_session_id = payload.get("session_id")
 
     admin = await auth_service.get_admin_by_username(username)
 
@@ -28,6 +29,14 @@ async def get_current_admin(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Admin account is disabled"
         )
+    
+    # Single Session Control: Check if session is still valid
+    if token_session_id and admin.current_session_id:
+        if token_session_id != admin.current_session_id:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Session expired. Another login detected from different location."
+            )
 
     return admin
 

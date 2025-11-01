@@ -16,6 +16,7 @@ This project is a comprehensive parental control system that includes:
 
 ### ?? Admin Management
 - Two-factor authentication (2FA) with Telegram
+- Single session control (one active login per admin)
 - Multiple access levels (Super Admin, Admin, Viewer)
 - Multi-admin support with isolated permissions
 - Complete activity logging
@@ -162,6 +163,12 @@ Password: 1234567899
 - Enable/Disable: `app/services/auth_service.py` ? `ENABLE_2FA`
 - When enabled, OTP code sent via Telegram
 - 6-digit code, valid for 5 minutes
+
+### Single Session
+
+- Only **one active session** per admin account
+- New login invalidates previous sessions
+- Enhanced security against token theft
 
 ## ?? Flutter/Android Development
 
