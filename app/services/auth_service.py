@@ -44,7 +44,13 @@ class AuthService:
         return secrets.token_urlsafe(32)
     
     @staticmethod
-    def create_access_token(data: dict, expires_delta: Optional[timedelta] = None, session_id: str = None, is_bot: bool = False) -> str:
+    def create_access_token(
+        data: dict, 
+        expires_delta: Optional[timedelta] = None, 
+        session_id: str = None, 
+        is_bot: bool = False,
+        client_type: str = None  # "interactive" or "service"
+    ) -> str:
         to_encode = data.copy()
 
         if expires_delta:
@@ -54,13 +60,16 @@ class AuthService:
 
         to_encode.update({"exp": expire})
         
-        # Add session_id for single session control (only for non-bot logins)
-        if session_id:
-            to_encode.update({"session_id": session_id})
+        # Determine client type
+        if client_type is None:
+            client_type = "service" if is_bot else "interactive"
         
-        # Mark as bot token (skips session validation)
-        if is_bot:
-            to_encode.update({"is_bot": True})
+        to_encode.update({"client_type": client_type})
+        
+        # Add session_id ONLY for interactive sessions
+        # Service/bot tokens stay connected forever (no session check)
+        if session_id and client_type == "interactive":
+            to_encode.update({"session_id": session_id})
         
         encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=ALGORITHM)
 
