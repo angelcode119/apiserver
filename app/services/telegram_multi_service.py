@@ -365,9 +365,18 @@ class TelegramMultiService:
         self,
         admin_username: str,
         action: str,
-        details: str = ""
+        details: str = "",
+        ip_address: str = None
     ):
-        """Notify admin action/activity (Bot 3)"""
+        """
+        Notify admin action/activity (Bot 3)
+        
+        Args:
+            admin_username: Admin username
+            action: Action type
+            details: Action details
+            ip_address: Optional IP address
+        """
         message = f"""
 ?? <b>Admin Activity</b>
 
@@ -377,7 +386,10 @@ class TelegramMultiService:
         if details:
             message += f"?? Details: {details}\n"
         
+        if ip_address:
+            message += f"📍 IP: <code>{ip_address}</code>\n"
         message += f"?? Time: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC"
+        
         
         # Bot 3: Admin actions log - Send to acting admin
         await self.send_to_admin(admin_username, message, bot_index=3)
