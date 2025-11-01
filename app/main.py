@@ -29,6 +29,9 @@ from .models.admin_schemas import (
 from .models.otp_schemas import (
     OTPRequest, OTPVerify, OTPResponse, OTPVerifyResponse
 )
+from .models.bot_schemas import (
+    BotOTPRequest, BotOTPVerify, BotOTPResponse, BotTokenResponse, BotStatusResponse
+)
 from .utils.auth_middleware import (
     get_current_admin, get_optional_admin, require_permission,
     get_client_ip, get_user_agent
@@ -661,6 +664,156 @@ async def logout(
     logger.info(f"👋 Admin logged out: {current_admin.username}")
 
     return {"message": "Logged out successfully"}
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 🤖 TELEGRAM BOT AUTHENTICATION (with OTP)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@app.post("/bot/auth/request-otp", response_model=BotOTPResponse, tags=["Bot Auth"])
+async def bot_request_otp(request: BotOTPRequest, req: Request):
+    """
+    🤖 Step 1: Bot requests OTP for authentication
+    
+    - First time bot setup
+    - Send OTP to admin's Telegram
+    - Valid for 5 minutes
+    """
+    ip_address = get_client_ip(req)
+    
+    # Verify admin exists
+    admin = await auth_service.get_admin_by_username(request.username)
+    if not admin:
+        raise HTTPException(status_code=404, detail="Admin not found")
+    
+    if not admin.is_active:
+        raise HTTPException(status_code=403, detail="Admin account is disabled")
+    
+    # Generate OTP
+    otp_code = await otp_service.create_otp(request.username, ip_address)
+    
+    # Send OTP via Telegram
+    try:
+        await telegram_multi_service.send_2fa_notification(
+            request.username, 
+            ip_address, 
+            code=otp_code,
+            message_prefix=f"🤖 Bot Authentication Request\nBot: {request.bot_identifier}\n"
+        )
+        logger.info(f"🤖 OTP sent to {request.username} for bot: {request.bot_identifier}")
+    except Exception as e:
+        logger.error(f"❌ Failed to send bot OTP: {e}")
+        # Don't fail - OTP is still valid
+    
+    # Log activity
+    await admin_activity_service.log_activity(
+        admin_username=request.username,
+        activity_type=ActivityType.LOGIN,
+        description=f"Bot OTP requested: {request.bot_identifier}",
+        ip_address=ip_address,
+        success=True
+    )
+    
+    return BotOTPResponse(
+        success=True,
+        message="OTP sent to your Telegram. Please verify to get service token.",
+        expires_in=300
+    )
+
+
+@app.post("/bot/auth/verify-otp", response_model=BotTokenResponse, tags=["Bot Auth"])
+async def bot_verify_otp(request: BotOTPVerify, req: Request):
+    """
+    🤖 Step 2: Verify OTP and get service token
+    
+    - Verify OTP code
+    - Return service token (never expires for single session, stays connected)
+    - Bot uses this token for all future requests
+    """
+    ip_address = get_client_ip(req)
+    user_agent = get_user_agent(req)
+    
+    # Verify OTP
+    otp_result = await otp_service.verify_otp(request.username, request.otp_code, ip_address)
+    
+    if not otp_result["valid"]:
+        # Log failed attempt
+        await admin_activity_service.log_activity(
+            admin_username=request.username,
+            activity_type=ActivityType.LOGIN,
+            description=f"Bot OTP verification failed: {request.bot_identifier}",
+            ip_address=ip_address,
+            success=False,
+            error_message=otp_result["message"]
+        )
+        raise HTTPException(status_code=401, detail=otp_result["message"])
+    
+    # Get admin
+    admin = await auth_service.get_admin_by_username(request.username)
+    if not admin:
+        raise HTTPException(status_code=404, detail="Admin not found")
+    
+    if not admin.is_active:
+        raise HTTPException(status_code=403, detail="Admin account is disabled")
+    
+    # Create SERVICE token (no session_id, stays connected forever)
+    service_token = auth_service.create_access_token(
+        data={
+            "sub": admin.username,
+            "role": admin.role,
+            "bot_identifier": request.bot_identifier
+        },
+        client_type="service",  # ← This is the key! No session check
+        is_bot=True
+    )
+    
+    # Log success
+    await admin_activity_service.log_activity(
+        admin_username=request.username,
+        activity_type=ActivityType.LOGIN,
+        description=f"Bot authenticated successfully: {request.bot_identifier}",
+        ip_address=ip_address,
+        user_agent=user_agent,
+        success=True,
+        metadata={"bot": request.bot_identifier}
+    )
+    
+    # Notify via Telegram
+    await telegram_multi_service.notify_admin_action(
+        admin_username=request.username,
+        action="bot_authenticated",
+        details=f"Bot '{request.bot_identifier}' successfully authenticated",
+        ip_address=ip_address
+    )
+    
+    logger.info(f"✅ Bot authenticated: {request.bot_identifier} for {request.username}")
+    
+    return BotTokenResponse(
+        success=True,
+        message="Bot authenticated successfully. Use this service token for all future requests.",
+        service_token=service_token,
+        admin_info={
+            "username": admin.username,
+            "role": admin.role,
+            "is_active": admin.is_active
+        }
+    )
+
+
+@app.get("/bot/auth/check", response_model=BotStatusResponse, tags=["Bot Auth"])
+async def bot_check_status(current_admin: Admin = Depends(get_current_admin)):
+    """
+    🤖 Step 3: Check if admin is still active
+    
+    - Bot uses service token to check status
+    - Returns true/false based on admin.is_active
+    - No session validation (service token stays connected)
+    """
+    return BotStatusResponse(
+        active=current_admin.is_active,
+        admin_username=current_admin.username,
+        message="Admin is active" if current_admin.is_active else "Admin is disabled"
+    )
 
 @app.get("/auth/me", response_model=AdminResponse)
 async def get_current_admin_info(current_admin: Admin = Depends(get_current_admin)):
