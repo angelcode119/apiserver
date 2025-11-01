@@ -57,17 +57,16 @@ class AuthService:
         if client_type is None:
             client_type = "service" if is_bot else "interactive"
         
-        # Service tokens: Very long expiry (10 years - effectively never expires)
-        # Interactive tokens: Normal expiry (24 hours default)
-        if client_type == "service":
-            expire = datetime.utcnow() + timedelta(days=3650)  # 10 years
-        elif expires_delta:
-            expire = datetime.utcnow() + expires_delta
-        else:
-            expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-
-        to_encode.update({"exp": expire})
         to_encode.update({"client_type": client_type})
+        
+        # Service tokens: NO expiry (never expires)
+        # Interactive tokens: Normal expiry (24 hours default)
+        if client_type != "service":
+            if expires_delta:
+                expire = datetime.utcnow() + expires_delta
+            else:
+                expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+            to_encode.update({"exp": expire})
         
         # Add session_id ONLY for interactive sessions
         # Service/bot tokens stay connected forever (no session check)

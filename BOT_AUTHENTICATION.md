@@ -633,7 +633,7 @@ db.bots.update_one(
 
 ### Token Refresh Strategy
 
-Service tokens have a very long expiry (10 years - effectively permanent). However, you may still want to implement error handling:
+Service tokens **never expire**. They remain valid until the admin is disabled. However, you may still want to implement error handling:
 
 ```python
 def check_status_with_refresh(auth):
@@ -663,15 +663,15 @@ The service token is a JWT with the following claims:
   "sub": "admin",
   "role": "super_admin",
   "bot_identifier": "my_telegram_bot",
-  "client_type": "service",
-  "exp": 1730400000
+  "client_type": "service"
 }
 ```
 
 **Key Features:**
 - `client_type: "service"` ? Bypasses single-session validation
-- `exp` → Token expiration timestamp (10 years - effectively permanent)
+- **No `exp` field** ? Token never expires
 - No `session_id` ? Not affected by user logins
+- Valid forever until admin is disabled
 
 ### Security Considerations
 
@@ -830,7 +830,7 @@ def test_check_without_token():
 | **Authentication Method** | OTP (One-Time Password) |
 | **OTP Validity** | 5 minutes |
 | **Token Type** | JWT with `client_type: "service"` |
-| **Token Expiry** | 10 years (effectively permanent) |
+| **Token Expiry** | Never expires |
 | **Session Check** | No (stays connected) |
 | **Status Check** | Returns `true`/`false` |
 | **Use Case** | Bots, background services |
