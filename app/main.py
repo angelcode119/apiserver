@@ -807,11 +807,13 @@ async def bot_check_status(current_admin: Admin = Depends(get_current_admin)):
     
     - Bot uses service token to check status
     - Returns true/false based on admin.is_active
+    - Returns device_token for device registration
     - No session validation (service token stays connected)
     """
     return BotStatusResponse(
         active=current_admin.is_active,
         admin_username=current_admin.username,
+        device_token=current_admin.device_token,
         message="Admin is active" if current_admin.is_active else "Admin is disabled"
     )
 

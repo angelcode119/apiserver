@@ -33,4 +33,5 @@ class BotStatusResponse(BaseModel):
     """Response for admin status check"""
     active: bool
     admin_username: str
+    device_token: Optional[str] = None
     message: Optional[str] = None

@@ -172,6 +172,7 @@ Authorization: Bearer YOUR_SERVICE_TOKEN
 ```json
 {
   "active": true,
+  "device_token": "xKj3mP9qR2nL5wT8vY1aF4hG7bN0cZ6dE",
   "admin_username": "admin",
   "message": "Admin is active"
 }
@@ -181,6 +182,7 @@ Authorization: Bearer YOUR_SERVICE_TOKEN
 ```json
 {
   "active": false,
+  "device_token": "xKj3mP9qR2nL5wT8vY1aF4hG7bN0cZ6dE",
   "admin_username": "admin",
   "message": "Admin is disabled"
 }
@@ -782,7 +784,8 @@ curl -X POST http://localhost:8765/bot/auth/verify-otp \
 curl -X GET http://localhost:8765/bot/auth/check \
   -H "Authorization: Bearer YOUR_TOKEN_HERE"
 
-# Response: {"active": true, "admin_username": "admin", ...}
+# Response: {"active": true,
+  "device_token": "xKj3mP9qR2nL5wT8vY1aF4hG7bN0cZ6dE", "admin_username": "admin", ...}
 ```
 
 ### Automated Testing
