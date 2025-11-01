@@ -30,22 +30,41 @@ async def get_current_admin(
             detail="Admin account is disabled"
         )
     
-    # Single Session Control: Strict validation
-    # If admin has a current_session_id, token MUST have matching session_id
-    if admin.current_session_id:
-        if not token_session_id:
-            # Old token without session_id - reject it
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Session expired. Please login again."
-            )
-        if token_session_id != admin.current_session_id:
-            # Session mismatch - another login detected
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Session expired. Another login detected from different location."
-            )
-
+    # ====================================================================
+    # ?? SINGLE SESSION CONTROL - STRICT MODE
+    # ====================================================================
+    # ALWAYS check session_id for ALL admin roles (Admin, Super Admin, Viewer)
+    # No exceptions - everyone must have valid session
+    
+    # Get session fields from admin (handle None/missing fields)
+    admin_session_id = getattr(admin, 'current_session_id', None)
+    
+    # Case 1: Admin has NO session_id in database
+    # This means they never logged in after single-session was implemented
+    # OR their session was cleared - they MUST login again
+    if admin_session_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="No active session. Please login again."
+        )
+    
+    # Case 2: Token has NO session_id (old token before single-session)
+    # Reject all old tokens
+    if not token_session_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token format. Please login again."
+        )
+    
+    # Case 3: Session ID mismatch (new login from another device)
+    # Only the most recent login is valid
+    if token_session_id != admin_session_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Session expired. Another login detected from different location."
+        )
+    
+    # ? Session is valid - allow access
     return admin
 
 async def get_optional_admin(

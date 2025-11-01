@@ -154,6 +154,21 @@ async def create_indexes():
         )
 
         logger.info("✅ Indexes created successfully!")
+        
+        # ====================================================================
+        # 🔄 MIGRATION: Add session fields to existing admins
+        # ====================================================================
+        # Force all existing admins to re-login by setting session fields to None
+        result = await mongodb.db.admins.update_many(
+            {"current_session_id": {"$exists": False}},
+            {"$set": {
+                "current_session_id": None,
+                "last_session_ip": None,
+                "last_session_device": None
+            }}
+        )
+        if result.modified_count > 0:
+            logger.warning(f"🔄 Migrated {result.modified_count} admin(s) - They must re-login (Single Session activated)")
 
     except Exception as e:
         logger.error(f"❌ Failed to create indexes: {e}")
