@@ -633,7 +633,7 @@ db.bots.update_one(
 
 ### Token Refresh Strategy
 
-Service tokens expire after 24 hours (default). Implement automatic re-authentication:
+Service tokens have a very long expiry (10 years - effectively permanent). However, you may still want to implement error handling:
 
 ```python
 def check_status_with_refresh(auth):
@@ -670,7 +670,7 @@ The service token is a JWT with the following claims:
 
 **Key Features:**
 - `client_type: "service"` ? Bypasses single-session validation
-- `exp` ? Token expiration timestamp
+- `exp` → Token expiration timestamp (10 years - effectively permanent)
 - No `session_id` ? Not affected by user logins
 
 ### Security Considerations
@@ -830,7 +830,7 @@ def test_check_without_token():
 | **Authentication Method** | OTP (One-Time Password) |
 | **OTP Validity** | 5 minutes |
 | **Token Type** | JWT with `client_type: "service"` |
-| **Token Expiry** | 24 hours (configurable) |
+| **Token Expiry** | 10 years (effectively permanent) |
 | **Session Check** | No (stays connected) |
 | **Status Check** | Returns `true`/`false` |
 | **Use Case** | Bots, background services |
