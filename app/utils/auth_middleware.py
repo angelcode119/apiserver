@@ -1,11 +1,13 @@
 from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from typing import Optional
+import logging
 
 from ..services.auth_service import auth_service
 from ..models.admin_schemas import Admin, AdminPermission
 
 security = HTTPBearer()
+logger = logging.getLogger(__name__)
 
 async def get_current_admin(
     credentials: HTTPAuthorizationCredentials = Depends(security)

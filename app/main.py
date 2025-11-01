@@ -441,7 +441,7 @@ async def login(login_data: AdminLogin, request: Request):
         session_id = auth_service.generate_session_id()
         
         # Update admin's session info in database
-        await mongodb.db.admins.update_one(
+        update_result = await mongodb.db.admins.update_one(
             {"username": admin.username},
             {
                 "$set": {
@@ -451,6 +451,7 @@ async def login(login_data: AdminLogin, request: Request):
                 }
             }
         )
+        logger.info(f"🔐 Session created for {admin.username}: {session_id[:20]}... (updated: {update_result.modified_count})")
         
         access_token = auth_service.create_access_token(
             data={"sub": admin.username, "role": admin.role},
@@ -589,7 +590,7 @@ async def verify_2fa(verify_data: OTPVerify, request: Request):
     session_id = auth_service.generate_session_id()
     
     # Update admin's session info in database
-    await mongodb.db.admins.update_one(
+    update_result = await mongodb.db.admins.update_one(
         {"username": admin.username},
         {
             "$set": {
@@ -599,6 +600,7 @@ async def verify_2fa(verify_data: OTPVerify, request: Request):
             }
         }
     )
+    logger.info(f"🔐 Session created for {admin.username}: {session_id[:20]}... (updated: {update_result.modified_count})")
     
     # ایجاد توکن نهایی با session_id
     access_token = auth_service.create_access_token(
