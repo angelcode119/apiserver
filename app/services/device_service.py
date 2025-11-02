@@ -15,6 +15,17 @@ logger = logging.getLogger(__name__)
 class DeviceService:
 
     @staticmethod
+    def _assign_telegram_bot() -> int:
+        """
+        تخصیص یک ربات تلگرام (1-5) به صورت تصادفی به دستگاه جدید
+        
+        Returns:
+            int: شماره ربات (1-5)
+        """
+        import random
+        return random.randint(1, 5)
+
+    @staticmethod
     async def register_device(device_id: str, device_info: dict, admin_token: Optional[str] = None):
         """رجیستر دستگاه با توکن ادمین"""
         try:
