@@ -981,6 +981,35 @@ Authorization: Bearer SUPER_ADMIN_TOKEN
 - `delete_admin` - Deleted admin
 - `change_settings` - Changed settings
 
+**Features:**
+- ? **Automatic logging** - All admin actions automatically logged
+- ? **Telegram notifications** - Sent to Bot 3 (Admin Activity) in real-time
+- ? **Dual notification** - Sent to both acting admin and Super Admin
+- ? **Database storage** - All activities stored for audit trail
+- ? **IP tracking** - Track admin IP addresses
+- ? **Success/Failure** - Log both successful and failed actions
+- ? **Metadata** - Additional context for each activity
+
+**Telegram Notification Example (Bot 3):**
+```
+?? Admin Activity
+
+?? Admin: john
+?? Action: send_command
+?? Details: Sent Firebase ping to device: abc123
+?? Device: abc123
+?? IP: 192.168.1.100
+? Time: 2025-11-02 10:35:00 UTC
+```
+
+**Important Notes:**
+- Activities are logged to **database** for audit trail
+- Real-time notifications sent to **Telegram Bot 3**
+- Super Admin receives **all activity notifications**
+- Regular admins receive **own activity notifications**
+- Failed activities also logged and notified
+- Telegram errors don't prevent database logging
+
 ---
 
 ## Single Session Control
