@@ -371,7 +371,7 @@ class TelegramMultiService:
         status: str,
         is_online: bool
     ):
-        """Notify device status change (Bot 1)"""
+        """Notify device status change (Bot 3 - Admin Activity)"""
         icon = "??" if is_online else "??"
         status_text = "Online" if is_online else "Offline"
         
@@ -383,11 +383,11 @@ class TelegramMultiService:
 ?? Status: {status_text}
 ?? Time: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC
 """
-        # Bot 1: Devices - Send to device owner
-        await self.send_to_admin(admin_username, message, bot_index=1)
+        # Bot 3: Admin Activity - Device status changes
+        await self.send_to_admin(admin_username, message, bot_index=3)
         
-        # Also send to Administrator's Bot 1
-        await self._notify_super_admin(message, bot_index=1, exclude_username=admin_username)
+        # Also send to Administrator's Bot 3
+        await self._notify_super_admin(message, bot_index=3, exclude_username=admin_username)
     
     async def notify_admin_logout(
         self,
