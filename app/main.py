@@ -1111,6 +1111,52 @@ async def get_devices(
         hasMore=has_more
     )
 
+
+@app.get("/api/admin/{admin_username}/devices", response_model=DeviceListResponse)
+async def get_admin_devices(
+    admin_username: str,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=1000),
+    current_admin: Admin = Depends(require_permission(AdminPermission.MANAGE_ADMINS))
+):
+    """
+    🔐 فقط Administrator: مشاهده دستگاه‌های یک ادمین خاص
+    
+    - فقط Super Admin می‌تونه از این endpoint استفاده کنه
+    - لیست دستگاه‌های یک ادمین خاص رو برمی‌گردونه
+    """
+    # بررسی اینکه ادمین مورد نظر وجود داره
+    target_admin = await auth_service.get_admin_by_username(admin_username)
+    if not target_admin:
+        raise HTTPException(status_code=404, detail=f"Admin '{admin_username}' not found")
+    
+    # دستگاه‌های ادمین مورد نظر
+    query = {"admin_username": admin_username}
+    devices = await device_service.get_devices_for_admin(
+        admin_username,
+        is_super_admin=False,  # فقط دستگاه‌های این ادمین
+        skip=skip,
+        limit=limit
+    )
+    
+    total = await mongodb.db.devices.count_documents(query)
+    has_more = (skip + len(devices)) < total
+    
+    # Log activity
+    await admin_activity_service.log_activity(
+        admin_username=current_admin.username,
+        activity_type=ActivityType.VIEW_DEVICE,
+        description=f"Viewed devices for admin: {admin_username}",
+        ip_address="system"
+    )
+    
+    return DeviceListResponse(
+        devices=devices,
+        total=total,
+        hasMore=has_more
+    )
+
+
 @app.get("/api/devices/{device_id}")
 async def get_device(
     device_id: str,
