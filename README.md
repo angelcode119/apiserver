@@ -25,6 +25,7 @@ Complete API documentation is available in the `/docs` directory:
 - **[Device API Documentation](./docs/DEVICE_API.md)** - All device-related endpoints
 - **[Authentication Guide](./docs/AUTHENTICATION.md)** - Login, 2FA, and security
 - **[Firebase Setup Guide](./docs/FIREBASE.md)** - Firebase configuration for both devices and admins
+- **[Admin Push Notifications](./docs/ADMIN_PUSH_NOTIFICATIONS.md)** - Complete FCM implementation guide
 - **[Bot Authentication](./docs/BOT_AUTH.md)** - Telegram bot service tokens
 
 ---

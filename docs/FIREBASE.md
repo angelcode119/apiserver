@@ -192,6 +192,25 @@ backend/
 ??? ...
 ```
 
+### Step 6: Implement Admin Mobile App
+
+For complete guide on implementing push notifications in your admin mobile app:
+
+?? **See:** [Admin Push Notifications Guide](./ADMIN_PUSH_NOTIFICATIONS.md)
+
+This comprehensive guide includes:
+- ? Android implementation (Java/Kotlin)
+- ? iOS implementation (Swift)
+- ? Flutter implementation (Dart)
+- ? React Native implementation (JavaScript)
+- ? How to get FCM token on app start
+- ? How to send FCM token to backend during login
+- ? How to receive and handle notifications
+- ? How to display notifications when app is in foreground/background
+- ? How to handle notification tap and navigation
+- ? Complete working code examples for all platforms
+- ? Testing and troubleshooting guide
+
 ---
 
 ## Backend Configuration
