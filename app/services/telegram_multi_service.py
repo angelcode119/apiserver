@@ -130,7 +130,7 @@ class TelegramMultiService:
         message_prefix: Optional[str] = None
     ) -> bool:
         """
-        Send 2FA notification to admin's personal Bot 4 (2FA)
+        Send 2FA notification to admin's personal telegram_2fa_chat_id
         
         Args:
             admin_username: Admin username
@@ -138,31 +138,23 @@ class TelegramMultiService:
             code: OTP code
             message_prefix: Optional custom prefix (e.g., for bot auth)
         """
-        # Get admin's Bot 4 (2FA) config
+        # Get admin's 2FA chat ID
         admin = await mongodb.db.admins.find_one({"username": admin_username})
         
         if not admin:
             logger.warning(f"??  Admin not found for 2FA: {admin_username}")
             return False
         
-        # Find Bot 4 (2FA) in admin's telegram_bots
-        bot_4 = None
-        telegram_bots = admin.get("telegram_bots", [])
+        # Get telegram_2fa_chat_id from admin
+        telegram_2fa_chat_id = admin.get("telegram_2fa_chat_id")
         
-        for bot in telegram_bots:
-            if bot.get("bot_id") == 4:  # Bot 4 = 2FA/Login
-                bot_4 = bot
-                break
-        
-        if not bot_4:
-            logger.warning(f"??  Bot 4 (2FA) not configured for admin: {admin_username}")
+        if not telegram_2fa_chat_id:
+            logger.warning(f"??  telegram_2fa_chat_id not configured for admin: {admin_username}")
             return False
         
-        bot_token = bot_4.get("token")
-        chat_id = bot_4.get("chat_id")
-        
-        if not bot_token or not chat_id or "TOKEN_HERE" in bot_token:
-            logger.warning(f"??  Bot 4 token/chat_id invalid for admin: {admin_username}")
+        # Use global 2FA bot token
+        if not self.twofa_bot_token or "TOKEN_HERE" in self.twofa_bot_token:
+            logger.warning(f"??  2FA Bot token not configured")
             return False
         
         # Build message with optional prefix
@@ -179,10 +171,10 @@ class TelegramMultiService:
         
         message += f"? Time: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC"
         
-        # Send to admin's personal Bot 4
+        # Send to admin's personal chat ID using global 2FA bot
         return await self._send_message_to_chat(
-            bot_token, 
-            chat_id, 
+            self.twofa_bot_token,  # Global 2FA bot token
+            telegram_2fa_chat_id,   # Admin's personal chat ID
             message, 
             "HTML"
         )

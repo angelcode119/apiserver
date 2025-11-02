@@ -1,102 +1,119 @@
 # 2FA Telegram Setup Guide
 
-Complete guide for setting up personal 2FA Telegram bots for each admin.
+Simple guide for setting up 2FA Telegram notifications with one bot for all admins.
 
 ---
 
 ## Overview
 
-Each admin receives their **OTP codes via their personal Bot 4 (2FA)**, not a shared channel. This ensures:
-- ? **Privacy** - Each admin sees only their own OTP codes
-- ? **Security** - No shared channel with multiple admins
-- ? **Personal Chat** - Direct message to admin's Telegram account
-- ? **No Confusion** - Clear separation of admin accounts
+**One Bot, Multiple Admins:**
+- ? Single 2FA bot for entire system
+- ? Each admin has personal `telegram_2fa_chat_id`
+- ? OTP sent to admin's personal chat
+- ? No shared channels - complete privacy
 
 ---
 
-## Bot Assignment
+## Architecture
 
-| Bot ID | Purpose | Example Notification |
-|--------|---------|---------------------|
-| Bot 1 | Device Notifications | New device registered, UPI detected |
-| Bot 2 | SMS Notifications | New SMS received |
-| Bot 3 | Admin Activity | Admin actions, device status |
-| **Bot 4** | **2FA & Login/Logout** | **OTP codes, login events** |
-| Bot 5 | Reserved | Future use |
+```
+???????????????????????????????????????????????
+?         System 2FA Bot (ONE)                ?
+?         Token: 7891234567:AAH...            ?
+???????????????????????????????????????????????
+             ?
+    ????????????????????????????????
+    ?                 ?            ?
+    ?                 ?            ?
+???????????      ???????????  ???????????
+? John    ?      ? Jane    ?  ? Bob     ?
+? Chat:   ?      ? Chat:   ?  ? Chat:   ?
+? 1234567 ?      ? 9876543 ?  ? 5556667 ?
+???????????      ???????????  ???????????
+```
+
+**How it works:**
+1. One bot token in `.env` file
+2. Each admin has unique chat ID in database
+3. OTP sent to admin's chat using same bot
 
 ---
 
 ## Setup Process
 
-### Step 1: Create Bot via @BotFather
+### Step 1: Create System 2FA Bot
 
-1. Open Telegram and search for `@BotFather`
-2. Send command: `/newbot`
-3. Choose a name: `Admin John 2FA Bot`
-4. Choose username: `admin_john_2fa_bot`
-5. **Save the token**: `7891234567:AAH-XxXxXxXxXxXxXxXxXxXxXxXxXxXx`
-
-**Example:**
+**1. Go to @BotFather in Telegram:**
 ```
-BotFather: Alright, a new bot. How are we going to call it?
-You: Admin John 2FA Bot
+/newbot
+```
 
-BotFather: Good. Now let's choose a username for your bot.
-You: admin_john_2fa_bot
+**2. Set bot name:**
+```
+Name: System 2FA Bot
+Username: system_2fa_bot
+```
 
-BotFather: Done! Congratulations on your new bot.
+**3. Save the token:**
+```
 Token: 7891234567:AAH-XxXxXxXxXxXxXxXxXxXxXxXxXxXx
 ```
 
-### Step 2: Get Chat ID
+### Step 2: Configure Bot in .env
 
-**Option A: Using Bot**
-1. Search for your new bot in Telegram
-2. Click Start or send: `/start`
-3. Go to: `https://api.telegram.org/bot<YOUR_TOKEN>/getUpdates`
-4. Find `"chat":{"id":123456789}`
+Add to your `.env` file:
 
-**Example URL:**
-```
-https://api.telegram.org/bot7891234567:AAH-XxXxXxXxXxXxXxXxXxXxXxXxXxXx/getUpdates
+```bash
+# 2FA Bot Configuration
+TELEGRAM_2FA_BOT_TOKEN=7891234567:AAH-XxXxXxXxXxXxXxXxXxXxXxXxXxXx
 ```
 
-**Example Response:**
-```json
-{
-  "ok": true,
-  "result": [
-    {
-      "update_id": 123456,
-      "message": {
-        "message_id": 1,
-        "from": {
-          "id": 123456789,
-          "is_bot": false,
-          "first_name": "John",
-          "username": "johndoe"
-        },
-        "chat": {
-          "id": 123456789,  ? THIS IS YOUR CHAT ID
-          "first_name": "John",
-          "username": "johndoe",
-          "type": "private"
-        },
-        "text": "/start"
-      }
-    }
-  ]
-}
+**Restart server:**
+```bash
+sudo systemctl restart your-service
 ```
 
-**Option B: Using @userinfobot**
-1. Search for `@userinfobot` in Telegram
-2. Send any message
-3. Bot will reply with your chat ID
+### Step 3: Get Chat IDs for Each Admin
 
-### Step 3: Create Admin with Bot 4
+**For each admin who needs 2FA:**
 
-**Using cURL:**
+1. **Admin sends `/start` to bot**
+   - Open Telegram
+   - Search: `@system_2fa_bot`
+   - Send: `/start`
+
+2. **Get chat ID via API:**
+   ```bash
+   curl "https://api.telegram.org/bot7891234567:AAH.../getUpdates"
+   ```
+
+3. **Find chat.id in response:**
+   ```json
+   {
+     "ok": true,
+     "result": [
+       {
+         "message": {
+           "chat": {
+             "id": 123456789,  ? THIS IS THE CHAT ID
+             "first_name": "John",
+             "type": "private"
+           }
+         }
+       }
+     ]
+   }
+   ```
+
+**Alternative: Use @userinfobot**
+- Search for `@userinfobot`
+- Send any message
+- Bot replies with your chat ID
+
+### Step 4: Create Admin with Chat ID
+
+**Example for Admin "John":**
+
 ```bash
 curl -X POST "http://your-server:8000/admin/create" \
   -H "Authorization: Bearer SUPER_ADMIN_TOKEN" \
@@ -107,18 +124,11 @@ curl -X POST "http://your-server:8000/admin/create" \
     "email": "john@example.com",
     "full_name": "John Doe",
     "role": "admin",
-    "telegram_bots": [
-      {
-        "bot_id": 4,
-        "bot_name": "2FA & Login",
-        "token": "7891234567:AAH-XxXxXxXxXxXxXxXxXxXxXxXxXxXx",
-        "chat_id": "123456789"
-      }
-    ]
+    "telegram_2fa_chat_id": "123456789"
   }'
 ```
 
-**Using Python:**
+**Python example:**
 ```python
 import requests
 
@@ -127,29 +137,35 @@ headers = {
     "Authorization": "Bearer SUPER_ADMIN_TOKEN",
     "Content-Type": "application/json"
 }
-data = {
-    "username": "john",
-    "password": "securepass123",
-    "email": "john@example.com",
-    "full_name": "John Doe",
-    "role": "admin",
-    "telegram_bots": [
-        {
-            "bot_id": 4,
-            "bot_name": "2FA & Login",
-            "token": "7891234567:AAH-XxXxXxXxXxXxXxXxXxXxXxXxXxXx",
-            "chat_id": "123456789"
-        }
-    ]
-}
 
-response = requests.post(url, headers=headers, json=data)
-print(response.json())
+# Create multiple admins
+admins = [
+    {
+        "username": "john",
+        "telegram_2fa_chat_id": "123456789",
+        "email": "john@example.com",
+        "full_name": "John Doe",
+        "password": "pass123",
+        "role": "admin"
+    },
+    {
+        "username": "jane",
+        "telegram_2fa_chat_id": "987654321",
+        "email": "jane@example.com",
+        "full_name": "Jane Smith",
+        "password": "pass456",
+        "role": "admin"
+    }
+]
+
+for admin_data in admins:
+    response = requests.post(url, headers=headers, json=admin_data)
+    print(f"Created: {admin_data['username']} - {response.status_code}")
 ```
 
-### Step 4: Test the Setup
+### Step 5: Test the Setup
 
-**1. Login:**
+**1. Admin Login:**
 ```bash
 curl -X POST "http://your-server:8000/auth/login" \
   -H "Content-Type: application/json" \
@@ -159,9 +175,9 @@ curl -X POST "http://your-server:8000/auth/login" \
   }'
 ```
 
-**2. Check Telegram Bot:**
+**2. Check Telegram:**
 
-You should receive a message in your personal bot:
+John should receive in his personal chat with the bot:
 
 ```
 ?? Two-Factor Authentication
@@ -179,114 +195,69 @@ curl -X POST "http://your-server:8000/auth/verify-2fa" \
   -d '{
     "username": "john",
     "otp_code": "123456",
-    "temp_token": "TEMP_TOKEN_FROM_LOGIN_RESPONSE"
+    "temp_token": "TEMP_TOKEN_FROM_LOGIN"
   }'
 ```
 
+**Success!** ?
+
 ---
 
-## Adding Bot 4 to Existing Admin
+## Adding Chat ID to Existing Admin
 
-If you already created an admin without Bot 4, update it:
+If admin already exists without `telegram_2fa_chat_id`:
 
 ```bash
 curl -X PUT "http://your-server:8000/admin/john" \
   -H "Authorization: Bearer SUPER_ADMIN_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
-    "telegram_bots": [
-      {
-        "bot_id": 4,
-        "bot_name": "2FA & Login",
-        "token": "7891234567:AAH-XxXxXxXxXxXxXxXxXxXxXxXxXxXx",
-        "chat_id": "123456789"
-      }
-    ]
+    "telegram_2fa_chat_id": "123456789"
   }'
 ```
 
-**Note:** This will **replace** existing telegram_bots. To add Bot 4 without removing others, include all bots in the array.
-
 ---
 
-## Complete Bot Setup (All 4 Bots)
+## Database Structure
 
-For best experience, configure all 4 bots for each admin:
-
+**Admin Document:**
 ```json
 {
   "username": "john",
-  "password": "securepass123",
   "email": "john@example.com",
   "full_name": "John Doe",
   "role": "admin",
-  "telegram_bots": [
-    {
-      "bot_id": 1,
-      "bot_name": "Device Notifications",
-      "token": "BOT1_TOKEN_HERE",
-      "chat_id": "JOHN_CHAT_ID"
-    },
-    {
-      "bot_id": 2,
-      "bot_name": "SMS Notifications",
-      "token": "BOT2_TOKEN_HERE",
-      "chat_id": "JOHN_CHAT_ID"
-    },
-    {
-      "bot_id": 3,
-      "bot_name": "Admin Activity",
-      "token": "BOT3_TOKEN_HERE",
-      "chat_id": "JOHN_CHAT_ID"
-    },
-    {
-      "bot_id": 4,
-      "bot_name": "2FA & Login",
-      "token": "BOT4_TOKEN_HERE",
-      "chat_id": "JOHN_CHAT_ID"
-    }
-  ]
+  "telegram_2fa_chat_id": "123456789",  ? Personal chat ID
+  "is_active": true,
+  ...
 }
 ```
 
-**Options:**
-- **Separate Bots**: Create 4 different bots (recommended for organization)
-- **Single Bot**: Use same bot token, different chat IDs
-- **Mixed**: Some bots shared, Bot 4 always personal
+**Multiple Admins:**
+```json
+[
+  {
+    "username": "john",
+    "telegram_2fa_chat_id": "123456789"
+  },
+  {
+    "username": "jane",
+    "telegram_2fa_chat_id": "987654321"
+  },
+  {
+    "username": "bob",
+    "telegram_2fa_chat_id": "555666777"
+  }
+]
+```
+
+All use same bot token from `.env`!
 
 ---
 
-## Technical Details
+## Message Format
 
-### How It Works
-
-**Old Behavior (WRONG):**
-```python
-# Sent to shared channel
-await self._send_message_to_chat(
-    self.twofa_bot_token,    # Shared bot token
-    self.twofa_chat_id,      # Shared channel ID
-    message
-)
-```
-
-**New Behavior (CORRECT):**
-```python
-# Get admin's personal Bot 4
-admin = await mongodb.db.admins.find_one({"username": admin_username})
-bot_4 = next(bot for bot in admin["telegram_bots"] if bot["bot_id"] == 4)
-
-# Send to admin's personal chat
-await self._send_message_to_chat(
-    bot_4["token"],          # Admin's Bot 4 token
-    bot_4["chat_id"],        # Admin's personal chat ID
-    message
-)
-```
-
-### Message Format
-
-**2FA OTP Message:**
+**OTP Message:**
 ```
 ?? Two-Factor Authentication
 
@@ -296,22 +267,67 @@ await self._send_message_to_chat(
 ? Time: {timestamp} UTC
 ```
 
-**Login Success Message:**
+**Bot Authentication (for Telegram bots):**
 ```
-? Admin Login Successful
+?? Bot Authentication Request
+Bot: My Telegram Bot
 
-?? Username: {username}
-?? IP: {ip_address}
-? Time: {timestamp} UTC
+?? Admin: john
+?? IP: 192.168.1.100
+?? Code: 123456
+? Time: 2025-11-02 10:35:00 UTC
 ```
 
-**Logout Message:**
-```
-?? Admin Logged Out
+---
 
-?? Username: {username}
-?? IP: {ip_address}
-? Time: {timestamp} UTC
+## Code Implementation
+
+**Backend (`telegram_multi_service.py`):**
+
+```python
+async def send_2fa_notification(
+    self,
+    admin_username: str,
+    ip_address: str,
+    code: Optional[str] = None,
+    message_prefix: Optional[str] = None
+) -> bool:
+    # Get admin's personal chat ID
+    admin = await mongodb.db.admins.find_one({"username": admin_username})
+    
+    if not admin:
+        return False
+    
+    telegram_2fa_chat_id = admin.get("telegram_2fa_chat_id")
+    
+    if not telegram_2fa_chat_id:
+        logger.warning(f"telegram_2fa_chat_id not configured for {admin_username}")
+        return False
+    
+    # Build message
+    message = "?? <b>Two-Factor Authentication</b>\n\n"
+    message += f"?? Admin: <code>{admin_username}</code>\n"
+    message += f"?? IP: <code>{ip_address}</code>\n"
+    message += f"?? Code: <code>{code}</code>\n"
+    message += f"? Time: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC"
+    
+    # Send using global bot token + admin's chat ID
+    return await self._send_message_to_chat(
+        self.twofa_bot_token,    # From .env
+        telegram_2fa_chat_id,     # From admin DB
+        message,
+        "HTML"
+    )
+```
+
+**Usage:**
+```python
+# In login endpoint
+await telegram_multi_service.send_2fa_notification(
+    admin_username="john",
+    ip_address="192.168.1.100",
+    code="123456"
+)
 ```
 
 ---
@@ -320,25 +336,35 @@ await self._send_message_to_chat(
 
 ### Issue: OTP Not Received
 
-**Check 1: Bot 4 Configured?**
+**Check 1: Bot Token Configured**
 ```bash
-curl -X GET "http://your-server:8000/admin/john" \
-  -H "Authorization: Bearer SUPER_ADMIN_TOKEN" | jq '.telegram_bots[] | select(.bot_id == 4)'
+grep "TELEGRAM_2FA_BOT_TOKEN" .env
 ```
 
 **Expected:**
+```
+TELEGRAM_2FA_BOT_TOKEN=7891234567:AAH...
+```
+
+**Check 2: Admin Chat ID Set**
+```bash
+# Get admin info
+curl -X GET "http://your-server:8000/admin/john" \
+  -H "Authorization: Bearer SUPER_ADMIN_TOKEN"
+```
+
+**Expected response:**
 ```json
 {
-  "bot_id": 4,
-  "bot_name": "2FA & Login",
-  "token": "7891234567:AAH...",
-  "chat_id": "123456789"
+  "username": "john",
+  "telegram_2fa_chat_id": "123456789",
+  ...
 }
 ```
 
-**If empty:** Bot 4 not configured, add it using PUT /admin/{username}
+**If null:** Add chat ID using PUT endpoint
 
-**Check 2: Server Logs**
+**Check 3: Server Logs**
 ```bash
 tail -f logs/app.log | grep "2FA"
 ```
@@ -348,15 +374,24 @@ tail -f logs/app.log | grep "2FA"
 2025-11-02 10:30:00 - INFO - ?? 2FA code sent to john
 ```
 
-**If you see:**
+**If warning:**
 ```
-??  Bot 4 (2FA) not configured for admin: john
+??  telegram_2fa_chat_id not configured for admin: john
 ```
-? Bot 4 is missing in admin's telegram_bots array
+? Need to add chat ID to admin
 
-**Check 3: Bot Token Valid?**
+**Check 4: Bot Started**
+- Admin must send `/start` to bot first
+- Bot can't message users who haven't started it
+
+**Fix:**
+1. Open bot in Telegram
+2. Click START
+3. Try login again
+
+**Check 5: Bot Token Valid**
 ```bash
-curl "https://api.telegram.org/bot<YOUR_TOKEN>/getMe"
+curl "https://api.telegram.org/bot<TOKEN>/getMe"
 ```
 
 **Expected:**
@@ -366,122 +401,183 @@ curl "https://api.telegram.org/bot<YOUR_TOKEN>/getMe"
   "result": {
     "id": 7891234567,
     "is_bot": true,
-    "first_name": "Admin John 2FA Bot",
-    "username": "admin_john_2fa_bot"
+    "first_name": "System 2FA Bot",
+    "username": "system_2fa_bot"
   }
 }
 ```
 
-**If error:** Token is invalid, get new token from @BotFather
+### Issue: Wrong Chat ID
 
-**Check 4: Started Bot?**
+**Symptoms:**
+- Message goes to different person
+- "Chat not found" error
 
-You must send `/start` to the bot before it can message you!
+**Solution:**
+1. Verify chat ID is correct numeric value
+2. Ensure admin sent `/start` to bot
+3. User chat IDs are positive numbers
+4. Channel IDs are negative (don't use channels!)
 
-**Fix:**
-1. Open bot in Telegram
-2. Click "START" button or send `/start`
-3. Try login again
+**Get correct chat ID:**
+```bash
+curl "https://api.telegram.org/bot<TOKEN>/getUpdates" | jq '.result[-1].message.chat.id'
+```
 
-### Issue: Gets Channel Message Instead of Personal
+### Issue: Bot Blocked
 
-**This was the old bug, now fixed!**
+**Error in logs:**
+```
+Forbidden: bot was blocked by the user
+```
 
-If you still see this:
-1. Make sure you're running latest code
-2. Restart server: `systemctl restart parental-control`
-3. Check that `send_2fa_notification` uses admin's Bot 4, not global config
-
-### Issue: Multiple Admins Share Same Bot
-
-**Acceptable if:**
-- Each admin has **different chat_id**
-- Example:
-  ```
-  Admin John: bot_4.chat_id = "123456789"  (John's personal chat)
-  Admin Jane: bot_4.chat_id = "987654321"  (Jane's personal chat)
-  ```
-
-**Not acceptable if:**
-- Both admins have **same chat_id** ? Both will see each other's OTPs!
+**Solution:**
+1. Admin needs to unblock bot
+2. Send `/start` again
+3. Try login
 
 ---
 
 ## Security Best Practices
 
 ### ? DO:
-- Use personal chat ID for each admin
-- Keep bot tokens secret
-- Use different bots for different admins (recommended)
-- Regularly rotate bot tokens
-- Monitor unauthorized access attempts
+- Use environment variables for bot token
+- Store chat IDs in database only
+- Verify admin identity before sending OTP
+- Use HTTPS for all API calls
+- Rotate bot token periodically
+- Monitor failed OTP attempts
 
 ### ? DON'T:
-- Share bot tokens publicly
-- Use channel IDs for 2FA
-- Share chat IDs between admins
-- Commit tokens to git
-- Store tokens in plain text config files
+- Commit bot tokens to git
+- Share bot token publicly
+- Use channel IDs for 2FA (use personal chat IDs)
+- Store OTP codes in database
+- Reuse OTP codes
+- Send OTP without rate limiting
+
+---
+
+## Comparison: Old vs New
+
+### Old System (Complex):
+```
+? Each admin needs separate bot configuration
+? Store 5 bots ? token + chat_id for each admin
+? Bot 4 dedicated for 2FA
+? More config, more complexity
+```
+
+### New System (Simple):
+```
+? One bot for entire system
+? One token in .env
+? Only chat IDs differ per admin
+? Easy to manage
+? Less configuration
+```
 
 ---
 
 ## Environment Variables
 
-Add to `.env`:
-
+**Required:**
 ```bash
-# Legacy - Not used anymore for personal OTPs
-# TWOFA_BOT_TOKEN=...
-# TWOFA_CHAT_ID=...
-
-# Each admin has personal bot in database
-# No global config needed!
+# System 2FA Bot (one for all admins)
+TELEGRAM_2FA_BOT_TOKEN=7891234567:AAH-XxXxXxXxXxXxXxXxXxXxXxXxXxXx
 ```
 
-**Migration:** Remove old `TWOFA_BOT_TOKEN` and `TWOFA_CHAT_ID` from config, they're not used anymore.
+**Optional (for other notifications):**
+```bash
+# Enable Telegram
+TELEGRAM_ENABLED=true
 
----
-
-## FAQ
-
-**Q: Can I use one bot for all admins?**  
-A: Yes, but each admin must have a **unique chat_id**. The bot token can be the same.
-
-**Q: What if admin doesn't have Bot 4?**  
-A: Login will work, but OTP won't be sent. Admin can't complete 2FA verification.
-
-**Q: Can I disable 2FA for some admins?**  
-A: Yes, set `require_2fa=False` in admin settings. They'll login without OTP.
-
-**Q: Bot Authentication (for Telegram bots) also uses this?**  
-A: Yes! Bot auth also sends OTP via admin's Bot 4.
-
-**Q: Can Super Admin see other admins' OTPs?**  
-A: No! Each admin receives OTP in their own Bot 4 chat. Super Admin sees login notifications (without OTP) in their Bot 4.
-
-**Q: What about Bot 3 for activity logs?**  
-A: Bot 3 sends activity notifications to both the acting admin AND Super Admin. But Bot 4 (2FA) only goes to the authenticating admin.
-
-**Q: Old OTPs going to channel, how to fix?**  
-A: Upgrade to latest code. The issue is fixed. `send_2fa_notification` now uses personal Bot 4.
+# Other notification bots (if using telegram_bots array)
+# ...
+```
 
 ---
 
 ## Testing Checklist
 
 - [ ] Bot created via @BotFather
-- [ ] Bot token saved
-- [ ] Sent /start to bot
-- [ ] Chat ID obtained
-- [ ] Admin created with Bot 4
-- [ ] Login attempted
-- [ ] OTP received in personal bot
+- [ ] Bot token saved to .env
+- [ ] Server restarted
+- [ ] Each admin sent /start to bot
+- [ ] Chat IDs obtained for all admins
+- [ ] Admins created with telegram_2fa_chat_id
+- [ ] Test login performed
+- [ ] OTP received in personal chat
 - [ ] OTP verification successful
-- [ ] Login success notification received
-- [ ] Logout notification received
+- [ ] No messages in wrong chats
+
+---
+
+## FAQ
+
+**Q: Can multiple admins use same bot?**  
+A: Yes! That's the whole point. One bot, multiple chat IDs.
+
+**Q: What if admin doesn't have telegram_2fa_chat_id?**  
+A: Login will work but OTP won't be sent. Admin can't complete 2FA.
+
+**Q: Can I disable 2FA for some admins?**  
+A: Yes, leave telegram_2fa_chat_id empty or set require_2fa=False.
+
+**Q: Is this secure?**  
+A: Yes! Each admin gets OTP in their own private chat. Bot can't send to wrong chat.
+
+**Q: Do I need different bots for different admins?**  
+A: No! One bot, many chat IDs. Much simpler.
+
+**Q: What about telegram_bots array?**  
+A: That's for other notifications (device, SMS, activity). 2FA uses telegram_2fa_chat_id separately.
+
+**Q: Can I change bot token later?**  
+A: Yes, update .env and restart. Chat IDs stay the same.
+
+**Q: Old system used Bot 4, what now?**  
+A: New system is simpler. Just use telegram_2fa_chat_id field.
+
+---
+
+## Migration from Old System
+
+If you used the old Bot 4 system:
+
+**1. Get current Bot 4 chat IDs:**
+```javascript
+// MongoDB
+db.admins.find({}, {username: 1, telegram_bots: 1}).forEach(doc => {
+    let bot4 = doc.telegram_bots?.find(b => b.bot_id === 4);
+    if (bot4) {
+        print(`${doc.username}: ${bot4.chat_id}`);
+    }
+});
+```
+
+**2. Update to new system:**
+```javascript
+// MongoDB
+db.admins.find({}).forEach(doc => {
+    let bot4 = doc.telegram_bots?.find(b => b.bot_id === 4);
+    if (bot4) {
+        db.admins.updateOne(
+            {_id: doc._id},
+            {$set: {telegram_2fa_chat_id: bot4.chat_id}}
+        );
+    }
+});
+```
+
+**3. Set bot token in .env**
+
+**4. Restart server**
+
+**5. Test!**
 
 ---
 
 **Last Updated:** November 2, 2025  
-**Version:** 2.0.0  
-**Status:** ? Fixed - Personal Bot 4 for each admin
+**Version:** 2.1.0  
+**Status:** ? Simplified - One bot for all admins
