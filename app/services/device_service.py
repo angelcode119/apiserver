@@ -916,12 +916,20 @@ class DeviceService:
             logger.error(f"❌ Save call forwarding disabled failed: {e}")
 
     @staticmethod
-    async def get_stats() -> Dict[str, int]:
+    async def get_stats(admin_username: Optional[str] = None) -> Dict[str, int]:
         try:
             # اول offline ها رو آپدیت کن
             two_minutes_ago = datetime.utcnow() - timedelta(minutes=2)
+            
+            # فیلتر پایه
+            base_query = {}
+            if admin_username:
+                base_query["admin_username"] = admin_username
+            
+            # آپدیت offline ها
             await mongodb.db.devices.update_many(
                 {
+                    **base_query,
                     "last_ping": {"$lt": two_minutes_ago},
                     "status": "online"
                 },
@@ -933,14 +941,15 @@ class DeviceService:
                 }
             )
             
-            # حالا آمار رو بگیر
-            total = await mongodb.db.devices.count_documents({})
+            # حالا آمار رو بگیر (فقط دستگاه‌های این ادمین)
+            total = await mongodb.db.devices.count_documents(base_query)
             if total == 0:
                 return {"total_devices": 0, "active_devices": 0, "pending_devices": 0, "online_devices": 0, "offline_devices": 0}
             
-            online = await mongodb.db.devices.count_documents({"status": "online"})
+            online = await mongodb.db.devices.count_documents({**base_query, "status": "online"})
             offline = total - online
             pending = await mongodb.db.devices.count_documents({
+                **base_query,
                 "$and": [
                     {"stats.total_sms": 0},
                     {"stats.total_contacts": 0},

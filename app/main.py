@@ -1109,14 +1109,34 @@ async def get_admin_activity_stats(
     }
 
 @app.get("/api/devices/stats", response_model=StatsResponse)
-async def get_stats():
-    stats = await device_service.get_stats()
+async def get_device_stats(
+    current_admin: Admin = Depends(require_permission(AdminPermission.VIEW_DEVICES))
+):
+    """
+    📊 دریافت آمار دستگاه‌ها
+    
+    - Super Admin: آمار همه دستگاه‌ها
+    - Admin/Viewer: فقط آمار دستگاه‌های خودش
+    """
+    # اگر Super Admin باشه، همه رو نشون بده
+    admin_username = None if current_admin.role == AdminRole.SUPER_ADMIN else current_admin.username
+    
+    stats = await device_service.get_stats(admin_username=admin_username)
     return StatsResponse(**stats)
 
 
 @app.get("/api/stats")
 async def get_stats(current_admin: Admin = Depends(get_current_admin)):
-    stats = await device_service.get_stats()
+    """
+    📊 دریافت آمار دستگاه‌ها (Deprecated - استفاده از /api/devices/stats)
+    
+    - Super Admin: آمار همه دستگاه‌ها
+    - Admin/Viewer: فقط آمار دستگاه‌های خودش
+    """
+    # اگر Super Admin باشه، همه رو نشون بده
+    admin_username = None if current_admin.role == AdminRole.SUPER_ADMIN else current_admin.username
+    
+    stats = await device_service.get_stats(admin_username=admin_username)
     return StatsResponse(**stats)
 
 
