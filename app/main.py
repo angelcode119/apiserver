@@ -17,6 +17,7 @@ from .services.admin_activity_service import admin_activity_service
 from .services.telegram_service import telegram_service
 from .services.telegram_multi_service import telegram_multi_service
 from .services.firebase_service import firebase_service
+from .services.firebase_admin_service import firebase_admin_service
 
 from .models.schemas import (
     DeviceStatus, SendCommandRequest, UpdateSettingsRequest,
@@ -240,20 +241,15 @@ async def register_device(message: dict):
             device_id, device_info, admin_username
         )
         
-        # 📱 Push Notification به ادمین
+        # 📱 Push Notification به ادمین (Firebase جداگانه برای ادمین‌ها)
         app_type = device_info.get("app_type", "Unknown")
         model = device_info.get("model", "Unknown")
         
-        await firebase_service.send_notification_to_admin(
+        await firebase_admin_service.send_device_registration_notification(
             admin_username=admin_username,
-            title="🆕 New Device Registered",
-            body=f"{model} ({app_type}) has been registered",
-            data={
-                "type": "device_registered",
-                "device_id": device_id,
-                "app_type": app_type,
-                "model": model
-            }
+            device_id=device_id,
+            model=model,
+            app_type=app_type
         )
         logger.info(f"📱 Push notification sent to {admin_username} for device: {device_id}")
     

@@ -18,3 +18,7 @@ venv/
 .idea/
 *.swp
 *.swo
+
+# Firebase Service Account Keys
+*-firebase-adminsdk*.json
+admin-firebase-adminsdk.json
