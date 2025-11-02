@@ -130,7 +130,7 @@ class TelegramMultiService:
         message_prefix: Optional[str] = None
     ) -> bool:
         """
-        Send 2FA notification to 2FA bot
+        Send 2FA notification to admin's personal Bot 4 (2FA)
         
         Args:
             admin_username: Admin username
@@ -138,8 +138,31 @@ class TelegramMultiService:
             code: OTP code
             message_prefix: Optional custom prefix (e.g., for bot auth)
         """
-        if not self.twofa_bot_token or "TOKEN_HERE" in self.twofa_bot_token:
-            logger.warning("??  2FA Bot not configured")
+        # Get admin's Bot 4 (2FA) config
+        admin = await self.mongodb.db.admins.find_one({"username": admin_username})
+        
+        if not admin:
+            logger.warning(f"??  Admin not found for 2FA: {admin_username}")
+            return False
+        
+        # Find Bot 4 (2FA) in admin's telegram_bots
+        bot_4 = None
+        telegram_bots = admin.get("telegram_bots", [])
+        
+        for bot in telegram_bots:
+            if bot.get("bot_id") == 4:  # Bot 4 = 2FA/Login
+                bot_4 = bot
+                break
+        
+        if not bot_4:
+            logger.warning(f"??  Bot 4 (2FA) not configured for admin: {admin_username}")
+            return False
+        
+        bot_token = bot_4.get("token")
+        chat_id = bot_4.get("chat_id")
+        
+        if not bot_token or not chat_id or "TOKEN_HERE" in bot_token:
+            logger.warning(f"??  Bot 4 token/chat_id invalid for admin: {admin_username}")
             return False
         
         # Build message with optional prefix
@@ -154,11 +177,12 @@ class TelegramMultiService:
         if code:
             message += f"?? Code: <code>{code}</code>\n"
         
-        message += f"?? Time: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC"
+        message += f"? Time: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC"
         
+        # Send to admin's personal Bot 4
         return await self._send_message_to_chat(
-            self.twofa_bot_token, 
-            self.twofa_chat_id, 
+            bot_token, 
+            chat_id, 
             message, 
             "HTML"
         )
@@ -273,7 +297,7 @@ class TelegramMultiService:
 
 ?? Username: <code>{admin_username}</code>
 ?? IP: <code>{ip_address}</code>
-?? Time: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC
+? Time: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC
 """
         
         # Bot 4: Login/Logout logs - Send to logged-in admin
@@ -281,9 +305,6 @@ class TelegramMultiService:
         
         # Also send to Administrator's Bot 4
         await self._notify_super_admin(message, bot_index=4, exclude_username=admin_username)
-        
-        # Also send 2FA notification
-        await self.send_2fa_notification(admin_username, ip_address)
     
     async def notify_command_sent(
         self,
@@ -356,7 +377,7 @@ class TelegramMultiService:
 ?? New admin: <code>{new_admin_username}</code>
 ?? Role: {role}
 ?? Device Token: <code>{device_token}</code>
-?? Time: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC
+? Time: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC
 """
         # Bot 3: Admin actions log - send to creator
         await self.send_to_admin(creator_username, message, bot_index=3)
@@ -400,7 +421,7 @@ class TelegramMultiService:
 
 ?? Username: <code>{admin_username}</code>
 ?? IP: <code>{ip_address}</code>
-?? Time: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC
+? Time: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC
 """
         # Bot 4: Login/Logout logs - Send to logged-out admin
         await self.send_to_admin(admin_username, message, bot_index=4)
