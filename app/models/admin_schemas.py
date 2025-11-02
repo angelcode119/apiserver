@@ -69,6 +69,9 @@ class Admin(BaseModel):
     current_session_id: Optional[str] = None  # Only one active session per admin
     last_session_ip: Optional[str] = None
     last_session_device: Optional[str] = None
+    
+    # Push Notifications (FCM tokens for admin devices)
+    fcm_tokens: List[str] = Field(default_factory=list)  # Firebase Cloud Messaging tokens
 
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
@@ -99,6 +102,7 @@ class AdminUpdate(BaseModel):
 class AdminLogin(BaseModel):
     username: str
     password: str
+    fcm_token: Optional[str] = None  # Firebase Cloud Messaging token (???????)
 
 class AdminResponse(BaseModel):
     username: str

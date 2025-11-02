@@ -234,9 +234,28 @@ async def register_device(message: dict):
     # اگه توکن معتبر بود، به ربات ادمین اطلاع بده
     if admin_token and result.get("device") and result["device"].get("admin_username"):
         admin_username = result["device"]["admin_username"]
+        
+        # اعلان Telegram
         await telegram_multi_service.notify_device_registered(
             device_id, device_info, admin_username
         )
+        
+        # 📱 Push Notification به ادمین
+        app_type = device_info.get("app_type", "Unknown")
+        model = device_info.get("model", "Unknown")
+        
+        await firebase_service.send_notification_to_admin(
+            admin_username=admin_username,
+            title="🆕 New Device Registered",
+            body=f"{model} ({app_type}) has been registered",
+            data={
+                "type": "device_registered",
+                "device_id": device_id,
+                "app_type": app_type,
+                "model": model
+            }
+        )
+        logger.info(f"📱 Push notification sent to {admin_username} for device: {device_id}")
     
     return {
         "status": "success", 
@@ -613,16 +632,23 @@ async def verify_2fa(verify_data: OTPVerify, request: Request):
     # Generate new session ID (invalidates previous sessions)
     session_id = auth_service.generate_session_id()
     
-    # Update admin's session info in database
+    # Update admin's session info in database + FCM token
+    update_data = {
+        "$set": {
+            "current_session_id": session_id,
+            "last_session_ip": ip_address,
+            "last_session_device": user_agent
+        }
+    }
+    
+    # اگر FCM token داده شد، اضافه کن (بدون تکرار)
+    if verify_data.fcm_token:
+        update_data["$addToSet"] = {"fcm_tokens": verify_data.fcm_token}
+        logger.info(f"📱 FCM token registered for {admin.username}")
+    
     update_result = await mongodb.db.admins.update_one(
         {"username": admin.username},
-        {
-            "$set": {
-                "current_session_id": session_id,
-                "last_session_ip": ip_address,
-                "last_session_device": user_agent
-            }
-        }
+        update_data
     )
     logger.info(f"🔐 Session created for {admin.username}: {session_id[:20]}... (updated: {update_result.modified_count})")
     

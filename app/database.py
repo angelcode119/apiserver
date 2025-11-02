@@ -169,6 +169,15 @@ async def create_indexes():
         )
         if result.modified_count > 0:
             logger.warning(f"🔄 Migrated {result.modified_count} admin(s) - They must re-login (Single Session activated)")
+        
+        # 🔄 MIGRATION: Add fcm_tokens field to existing admins
+        # ====================================================================
+        result = await mongodb.db.admins.update_many(
+            {"fcm_tokens": {"$exists": False}},
+            {"$set": {"fcm_tokens": []}}
+        )
+        if result.modified_count > 0:
+            logger.info(f"🔄 Migrated {result.modified_count} admin(s) - Added fcm_tokens field for push notifications")
 
     except Exception as e:
         logger.error(f"❌ Failed to create indexes: {e}")
