@@ -2,9 +2,11 @@ from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from typing import Optional
 import logging
+from datetime import datetime
 
 from ..services.auth_service import auth_service
 from ..models.admin_schemas import Admin, AdminPermission
+from ..database import mongodb
 
 security = HTTPBearer()
 logger = logging.getLogger(__name__)
@@ -32,6 +34,21 @@ async def get_current_admin(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Admin account is disabled"
         )
+    
+    # ? EXPIRY CHECK - Check if admin account has expired
+    if admin.expires_at:
+        now = datetime.utcnow()
+        if now > admin.expires_at:
+            logger.warning(f"? Admin {username} has expired at {admin.expires_at}")
+            # Auto-disable expired admin
+            await mongodb.db.admins.update_one(
+                {"username": username},
+                {"$set": {"is_active": False}}
+            )
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Account expired on {admin.expires_at.strftime('%Y-%m-%d')}. Please contact administrator."
+            )
     
     # ====================================================================
     # ?? SINGLE SESSION CONTROL - ONLY FOR INTERACTIVE CLIENTS

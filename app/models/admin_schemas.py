@@ -72,6 +72,9 @@ class Admin(BaseModel):
     
     # Push Notifications (FCM tokens for admin devices)
     fcm_tokens: List[str] = Field(default_factory=list)  # Firebase Cloud Messaging tokens
+    
+    # Expiry / Subscription
+    expires_at: Optional[datetime] = None  # ????? ????? - ??? ?? ??? ????? ????? ??????? ????
 
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
@@ -89,6 +92,9 @@ class AdminCreate(BaseModel):
     
     # Telegram Bots (each bot has token + chat_id)
     telegram_bots: Optional[List[TelegramBot]] = None
+    
+    # Expiry (????? ?????)
+    expiry_days: Optional[int] = Field(None, description="????? ??? ?????? (????? 30 ???)")  # None = ???? ???????
 
 class AdminUpdate(BaseModel):
     email: Optional[EmailStr] = None
@@ -98,6 +104,7 @@ class AdminUpdate(BaseModel):
     is_active: Optional[bool] = None
     telegram_2fa_chat_id: Optional[str] = None
     telegram_bots: Optional[List[TelegramBot]] = None
+    expires_at: Optional[datetime] = None  # ????? ?????
 
 class AdminLogin(BaseModel):
     username: str
@@ -116,6 +123,7 @@ class AdminResponse(BaseModel):
     is_active: bool
     last_login: Optional[datetime]
     login_count: int
+    expires_at: Optional[datetime] = None  # ????? ?????
     created_at: datetime
 
 class TokenResponse(BaseModel):

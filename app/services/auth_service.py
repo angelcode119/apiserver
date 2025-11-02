@@ -161,6 +161,13 @@ class AuthService:
                     detail=f"Admin must have exactly 5 telegram bots, got {len(telegram_bots)}"
                 )
 
+            # محاسبه تاریخ انقضا (اگر expiry_days داده شده باشد)
+            expires_at = None
+            if admin_create.expiry_days and admin_create.expiry_days > 0:
+                from datetime import timedelta
+                expires_at = datetime.utcnow() + timedelta(days=admin_create.expiry_days)
+                logger.info(f"⏰ Admin will expire in {admin_create.expiry_days} days: {expires_at.strftime('%Y-%m-%d %H:%M:%S')}")
+            
             admin = Admin(
                 username=admin_create.username,
                 email=admin_create.email,
@@ -171,7 +178,8 @@ class AuthService:
                 device_token=device_token,
                 telegram_2fa_chat_id=admin_create.telegram_2fa_chat_id,
                 telegram_bots=telegram_bots,
-                created_by=created_by
+                created_by=created_by,
+                expires_at=expires_at
             )
 
             await mongodb.db.admins.insert_one(admin.model_dump())
@@ -180,6 +188,8 @@ class AuthService:
             logger.info(f"   Device Token: {device_token[:16]}...")
             logger.info(f"   2FA Chat ID: {admin.telegram_2fa_chat_id}")
             logger.info(f"   Telegram Bots: {len(telegram_bots)}")
+            if expires_at:
+                logger.info(f"   ⏰ Expires at: {expires_at.strftime('%Y-%m-%d %H:%M:%S')} UTC")
 
             return admin
 
@@ -206,6 +216,21 @@ class AuthService:
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail="Admin account is disabled"
                 )
+            
+            # ⏰ چک کردن تاریخ انقضا
+            if admin.expires_at:
+                now = datetime.utcnow()
+                if now > admin.expires_at:
+                    logger.warning(f"⏰ Admin {admin.username} has expired at {admin.expires_at}")
+                    # غیرفعال کردن ادمین منقضی شده
+                    await mongodb.db.admins.update_one(
+                        {"username": admin.username},
+                        {"$set": {"is_active": False}}
+                    )
+                    raise HTTPException(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        detail=f"Account expired on {admin.expires_at.strftime('%Y-%m-%d')}. Please contact administrator."
+                    )
 
             await mongodb.db.admins.update_one(
                 {"username": login.username},
