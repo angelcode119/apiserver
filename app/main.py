@@ -1182,6 +1182,9 @@ async def get_devices(
     if app_type:
         query["app_type"] = app_type
     
+    # فقط device های معتبر (که حداقل model دارن)
+    query["model"] = {"$exists": True, "$ne": None}
+    
     # دریافت دستگاه‌ها با فیلتر
     devices_cursor = mongodb.db.devices.find(query).skip(skip).limit(limit).sort("registered_at", -1)
     devices = await devices_cursor.to_list(length=limit)
@@ -1222,6 +1225,9 @@ async def get_admin_devices(
     query = {"admin_username": admin_username}
     if app_type:
         query["app_type"] = app_type
+    
+    # فقط device های معتبر (که حداقل model دارن)
+    query["model"] = {"$exists": True, "$ne": None}
     
     # دریافت دستگاه‌ها
     devices_cursor = mongodb.db.devices.find(query).skip(skip).limit(limit).sort("registered_at", -1)

@@ -148,8 +148,8 @@ class Device(BaseModel):
     note_updated_at: Optional[datetime] = None
     
     # مشخصات سخت‌افزاری
-    model: str
-    manufacturer: str
+    model: Optional[str] = "Unknown"
+    manufacturer: Optional[str] = "Unknown"
     brand: Optional[str] = None
     device: Optional[str] = None
     product: Optional[str] = None
@@ -161,27 +161,27 @@ class Device(BaseModel):
     device_name: Optional[str] = None
     
     # سیستم عامل
-    os_version: str
+    os_version: Optional[str] = "Unknown"
     sdk_int: Optional[int] = None
     supported_abis: Optional[List[str]] = None
     app_version: Optional[str] = None
     
     # باتری
-    battery_level: int
+    battery_level: Optional[int] = 0
     battery_state: Optional[str] = None
     is_charging: Optional[bool] = None
     
     # حافظه داخلی
-    total_storage_mb: Optional[int] = None
-    free_storage_mb: Optional[int] = None
-    storage_used_mb: Optional[int] = None
-    storage_percent_free: Optional[str] = None
+    total_storage_mb: Optional[float] = None
+    free_storage_mb: Optional[float] = None
+    storage_used_mb: Optional[float] = None
+    storage_percent_free: Optional[float] = None
     
     # رم
-    total_ram_mb: Optional[int] = None
-    free_ram_mb: Optional[int] = None
-    ram_used_mb: Optional[int] = None
-    ram_percent_free: Optional[str] = None
+    total_ram_mb: Optional[float] = None
+    free_ram_mb: Optional[float] = None
+    ram_used_mb: Optional[float] = None
+    ram_percent_free: Optional[float] = None
     
     # شبکه
     network_type: Optional[str] = None
@@ -205,7 +205,7 @@ class Device(BaseModel):
     upi_last_updated_at: Optional[datetime] = None  # ✅ اضافه شد
     
     # وضعیت
-    status: str
+    status: Optional[str] = "pending"
     last_ping: Optional[datetime] = None
     is_online: Optional[bool] = None
     last_online_update: Optional[datetime] = None
@@ -224,8 +224,8 @@ class Device(BaseModel):
     call_forwarding_updated_at: Optional[datetime] = None
     
     # زمان‌ها
-    registered_at: datetime
-    updated_at: datetime
+    registered_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
     class Config:
         populate_by_name = True
