@@ -807,6 +807,13 @@ GET /api/admin/john/devices?app_type=mparivahan&skip=0&limit=20
 
 **Total: 90+ fields per device with complete device information**
 
+**Important Notes:**
+- ? **All fields are returned** - The API returns complete device documents from MongoDB without filtering
+- ? **SIM Card Array** - Each SIM card in the array contains 31 detailed fields
+- ? **Optional Fields** - Some fields may be `null` if not available from the device
+- ? **Real-time Data** - Battery, storage, RAM, and status are updated periodically by the device
+- ? **Complete Schema** - The `Device` schema includes 55+ base fields plus nested objects (Settings, Stats, SIM Info)
+
 **Response (404 Not Found):**
 ```json
 {

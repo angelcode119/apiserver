@@ -376,6 +376,8 @@ See [Admin API - Admin Device Management](./ADMIN_API.md#admin-device-management
 - Firebase & Communication (2 fields)
 - Device Status (4 fields)
 
+**Important:** ? All fields listed above are returned in the response. The API does not filter fields.
+
 **Features:**
 - **Super Admin**: Sees all devices
 - **Admin/Viewer**: Sees only own devices
@@ -583,6 +585,13 @@ Authorization: Bearer YOUR_ACCESS_TOKEN
 **Returns 90+ fields with complete device information.**
 
 For detailed field documentation, see [Admin API - Admin Device Management](./ADMIN_API.md#admin-device-management).
+
+**Important Notes:**
+- ? **All fields are returned** - Complete device document from MongoDB
+- ? **No field filtering** - All 90+ fields included in response
+- ? **SIM Card Details** - Full 31-field information for each SIM card
+- ? **Real-time Data** - Battery, storage, RAM updated by device
+- ? **Complete Hardware Info** - All device identification fields included
 
 **Response (404 Not Found):**
 ```json

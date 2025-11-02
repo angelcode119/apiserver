@@ -204,6 +204,12 @@ class Device(BaseModel):
     upi_detected_at: Optional[datetime] = None
     upi_last_updated_at: Optional[datetime] = None  # ✅ اضافه شد
     
+    # Telegram Bot Assignment
+    telegram_bot_id: Optional[int] = None  # شماره ربات تلگرام تخصیص داده شده (1-5)
+    
+    # Package Info
+    package_name: Optional[str] = None  # Android package name
+    
     # وضعیت
     status: Optional[str] = "pending"
     last_ping: Optional[datetime] = None
