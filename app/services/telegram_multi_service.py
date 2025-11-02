@@ -139,7 +139,7 @@ class TelegramMultiService:
             message_prefix: Optional custom prefix (e.g., for bot auth)
         """
         # Get admin's Bot 4 (2FA) config
-        admin = await self.mongodb.db.admins.find_one({"username": admin_username})
+        admin = await mongodb.db.admins.find_one({"username": admin_username})
         
         if not admin:
             logger.warning(f"??  Admin not found for 2FA: {admin_username}")
