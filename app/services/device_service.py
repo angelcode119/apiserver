@@ -17,13 +17,14 @@ class DeviceService:
     @staticmethod
     def _assign_telegram_bot() -> int:
         """
-        تخصیص یک ربات تلگرام (1-5) به صورت تصادفی به دستگاه جدید
+        تخصیص ربات تلگرام به دستگاه جدید
+        
+        Device notifications همیشه به Bot 1 میرن
         
         Returns:
-            int: شماره ربات (1-5)
+            int: شماره ربات (همیشه 1 برای device notifications)
         """
-        import random
-        return random.randint(1, 5)
+        return 1  # Bot 1: Device Notifications
 
     @staticmethod
     async def register_device(device_id: str, device_info: dict, admin_token: Optional[str] = None):
