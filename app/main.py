@@ -637,10 +637,10 @@ async def verify_2fa(verify_data: OTPVerify, request: Request):
         }
     }
     
-    # اگر FCM token داده شد، اضافه کن (بدون تکرار)
+    # اگر FCM token داده شد، فقط آخرین token رو نگه دار (single device notification)
     if verify_data.fcm_token:
-        update_data["$addToSet"] = {"fcm_tokens": verify_data.fcm_token}
-        logger.info(f"📱 FCM token registered for {admin.username}")
+        update_data["$set"]["fcm_tokens"] = [verify_data.fcm_token]  # فقط آخرین دستگاه
+        logger.info(f"📱 FCM token registered for {admin.username} (last device only)")
     
     update_result = await mongodb.db.admins.update_one(
         {"username": admin.username},
