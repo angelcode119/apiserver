@@ -1073,8 +1073,17 @@ async def get_admin_activities(
     activity_type: Optional[str] = None,
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=500),
-    current_admin: Admin = Depends(require_permission(AdminPermission.VIEW_ADMIN_LOGS))
+    current_admin: Admin = Depends(get_current_admin)
 ):
+    """
+    📋 دریافت لیست activity های ادمین
+    
+    - Super Admin: می‌تونه activity همه یا یک ادمین خاص رو ببینه
+    - Admin عادی: فقط activity خودش رو می‌بینه
+    """
+    # اگر Super Admin نیست، فقط activity خودش رو می‌تونه ببینه
+    if current_admin.role != AdminRole.SUPER_ADMIN:
+        admin_username = current_admin.username
 
     activities = await admin_activity_service.get_activities(
         admin_username=admin_username,
@@ -1097,9 +1106,18 @@ async def get_admin_activities(
 @app.get("/admin/activities/stats")
 async def get_admin_activity_stats(
     admin_username: Optional[str] = None,
-    current_admin: Admin = Depends(require_permission(AdminPermission.VIEW_ADMIN_LOGS))
+    current_admin: Admin = Depends(get_current_admin)
 ):
-
+    """
+    📊 دریافت آمار activity های ادمین
+    
+    - Super Admin: می‌تونه آمار همه یا یک ادمین خاص رو ببینه
+    - Admin عادی: فقط آمار خودش رو می‌بینه
+    """
+    # اگر Super Admin نیست، فقط activity خودش رو می‌تونه ببینه
+    if current_admin.role != AdminRole.SUPER_ADMIN:
+        admin_username = current_admin.username
+    
     stats = await admin_activity_service.get_activity_stats(admin_username)
     recent_logins = await admin_activity_service.get_recent_logins(limit=10)
 
