@@ -282,9 +282,23 @@ app.add_middleware(
 ### Custom Limits per Endpoint
 
 Already configured in middleware:
+
+**Authentication (?????):**
 - `/auth/login`: 10 req/min
-- `/register`: 50 req/min
-- `/sms`: 200 req/min
+- `/auth/verify-2fa`: 10 req/min
+
+**Device Heartbeat (????):**
+- `/ping`, `/heartbeat`: 500 req/min (???? ????? ???)
+- `/status`: 300 req/min
+- `/battery`: 300 req/min
+- `/location`: 300 req/min
+
+**Device Registration & Sync:**
+- `/register`: 100 req/min
+- `/sms`: 300 req/min
+- `/contacts`: 200 req/min
+- `/call-logs`: 200 req/min
+- `/logs`: 200 req/min
 
 ---
 

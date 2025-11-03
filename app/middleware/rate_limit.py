@@ -33,12 +33,24 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         
         # ??????????? ??? ???? endpoint ??? ?????
         self.endpoint_limits = {
+            # Authentication endpoints (?????)
             "/auth/login": 10,  # 10 request per minute
             "/auth/verify-2fa": 10,
-            "/register": 50,  # Device registration
-            "/sms": 200,  # SMS sync
-            "/contacts": 100,  # Contacts sync
-            "/call-logs": 100,  # Call logs sync
+            
+            # Device endpoints (??????? ???? ???? heartbeat ? sync)
+            "/register": 100,  # Device registration - ?????? ????
+            "/ping": 500,  # Heartbeat/ping - ???? ????
+            "/heartbeat": 500,  # Heartbeat
+            "/status": 300,  # Status update
+            "/device-info": 200,  # Device info update
+            
+            # Data sync endpoints (??????? ????? ?? ????)
+            "/sms": 300,  # SMS sync - ?????? ????
+            "/contacts": 200,  # Contacts sync - ?????? ????
+            "/call-logs": 200,  # Call logs sync - ?????? ????
+            "/logs": 200,  # Device logs
+            "/location": 300,  # Location updates
+            "/battery": 300,  # Battery status
         }
         
         # Whitelist IPs (no rate limiting)
@@ -73,19 +85,37 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         ??????? endpoint key ?? path
         ?????: /api/devices/123/sms ? /sms
         """
-        # Common patterns
-        if "/sms" in path:
+        # Authentication endpoints
+        if "/auth/login" in path:
+            return "/auth/login"
+        elif "/auth/verify-2fa" in path:
+            return "/auth/verify-2fa"
+        
+        # Device heartbeat/ping endpoints (high frequency)
+        elif "/ping" in path or "/heartbeat" in path:
+            return "/ping"
+        elif "/status" in path:
+            return "/status"
+        elif "/battery" in path:
+            return "/battery"
+        elif "/location" in path:
+            return "/location"
+        elif "/device-info" in path:
+            return "/device-info"
+        
+        # Registration
+        elif path == "/register" or "/register" in path:
+            return "/register"
+        
+        # Data sync endpoints
+        elif "/sms" in path:
             return "/sms"
         elif "/contacts" in path:
             return "/contacts"
         elif "/call-logs" in path:
             return "/call-logs"
-        elif "/auth/login" in path:
-            return "/auth/login"
-        elif "/auth/verify-2fa" in path:
-            return "/auth/verify-2fa"
-        elif path == "/register":
-            return "/register"
+        elif "/logs" in path and "/api/devices" in path:
+            return "/logs"
         
         return path
     
