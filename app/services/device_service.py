@@ -9,9 +9,7 @@ import hashlib
 from pymongo import UpdateOne
 import re
 import random
-import logging
 
-logger = logging.getLogger(__name__)
 
 class DeviceService:
 
@@ -37,10 +35,9 @@ class DeviceService:
                 admin = await auth_service.get_admin_by_token(admin_token)
                 if admin:
                     admin_username = admin.username
-                    logger.info(f"Device {device_id} assigned to admin: {admin_username}")
                 else:
-                    logger.warning(f"Invalid admin token for device: {device_id}")
-
+                    pass
+            
             common_data = {
                 "model": device_info.get("model"),
                 "manufacturer": device_info.get("manufacturer"),
@@ -121,15 +118,14 @@ class DeviceService:
             )
             
             if result.upserted_id:
-                logger.info(f"New device registered: {device_id}")
+                pass
             else:
-                logger.info(f"Device updated: {device_id}")
-
+                pass
+            
             device_doc = await mongodb.db.devices.find_one({"device_id": device_id})
             return {"device": device_doc, "is_new": is_new_device}
 
         except Exception as e:
-            logger.error(f"Device operation failed: {e}")
             raise
 
             raise
@@ -142,7 +138,6 @@ class DeviceService:
                 {"$set": {"status": status, "last_ping": datetime.utcnow() if status == DeviceStatus.ONLINE else None, "updated_at": datetime.utcnow()}}
             )
         except Exception as e:
-            logger.error(f"Device operation failed: {e}")
             raise
 
     @staticmethod
@@ -153,7 +148,6 @@ class DeviceService:
                 {"$set": {"battery_level": battery_level, "updated_at": datetime.utcnow()}}
             )
         except Exception as e:
-            logger.error(f"Device operation failed: {e}")
             raise
 
     @staticmethod
@@ -164,7 +158,6 @@ class DeviceService:
                 {"$set": {"is_online": is_online, "last_online_update": datetime.utcnow()}}
             )
         except Exception as e:
-            logger.error(f"Device operation failed: {e}")
             raise
 
     @staticmethod
@@ -192,7 +185,6 @@ class DeviceService:
                 return Device(**normalized)
             return None
         except Exception as e:
-            logger.error(f"Device operation failed: {e}")
             raise
 
             return None
@@ -229,7 +221,6 @@ class DeviceService:
             
             if operations:
                 result = await mongodb.db.sms_messages.bulk_write(operations, ordered=False)
-                logger.info(f"Saved {result.upserted_count + result.modified_count} SMS for device {device_id}")
 
             total_sms = await mongodb.db.sms_messages.count_documents({"device_id": device_id})
             
@@ -245,7 +236,6 @@ class DeviceService:
             
             
         except Exception as e:
-            logger.error(f"Device operation failed: {e}")
             raise
 
             raise
@@ -283,7 +273,6 @@ class DeviceService:
             
                     
         except Exception as e:
-            logger.error(f"Device operation failed: {e}")
             raise
 
     @staticmethod
@@ -299,7 +288,6 @@ class DeviceService:
                         msg[key] = str(value)
             return messages
         except Exception as e:
-            logger.error(f"Device operation failed: {e}")
             raise
 
             return []
@@ -340,7 +328,6 @@ class DeviceService:
 
             if operations:
                 result = await mongodb.db.contacts.bulk_write(operations, ordered=False)
-                logger.info(f"Saved {result.upserted_count + result.modified_count} contacts for device {device_id}")
                 new_count = result.upserted_count
                 update_count = result.modified_count
 
@@ -357,7 +344,6 @@ class DeviceService:
             )
 
         except Exception as e:
-            logger.error(f"Device operation failed: {e}")
             raise
 
     @staticmethod
@@ -373,7 +359,6 @@ class DeviceService:
                         contact[key] = str(value)
             return contacts
         except Exception as e:
-            logger.error(f"Device operation failed: {e}")
             raise
 
             return []
@@ -434,7 +419,6 @@ class DeviceService:
                 )
 
         except Exception as e:
-            logger.error(f"Device operation failed: {e}")
             raise
 
     @staticmethod
@@ -450,7 +434,6 @@ class DeviceService:
                         call[key] = str(value)
             return call_logs
         except Exception as e:
-            logger.error(f"Device operation failed: {e}")
             raise
 
             return []
@@ -483,7 +466,6 @@ class DeviceService:
                         log[key] = str(value)
             return logs
         except Exception as e:
-            logger.error(f"Device operation failed: {e}")
             raise
 
             return []
@@ -534,7 +516,6 @@ class DeviceService:
             return True
             
         except Exception as e:
-            logger.error(f"Device operation failed: {e}")
             raise
 
             return False
@@ -573,7 +554,6 @@ class DeviceService:
                     normalized = DeviceService._normalize_device_data(device_doc)
                     device_list.append(Device(**normalized))
                 except Exception as e:
-                    logger.error(f"Device operation failed: {e}")
                     raise
 
                     continue
@@ -581,7 +561,6 @@ class DeviceService:
             return device_list
             
         except Exception as e:
-            logger.error(f"Device operation failed: {e}")
             raise
 
             return []
@@ -616,7 +595,6 @@ class DeviceService:
                     normalized = DeviceService._normalize_device_data(device_doc)
                     device_list.append(Device(**normalized))
                 except Exception as e:
-                    logger.error(f"Device operation failed: {e}")
                     raise
 
                     continue
@@ -624,7 +602,6 @@ class DeviceService:
             return device_list
             
         except Exception as e:
-            logger.error(f"Device operation failed: {e}")
             raise
 
             return []
@@ -649,7 +626,6 @@ class DeviceService:
                     {"$set": update_data}
                 )
         except Exception as e:
-            logger.error(f"Device operation failed: {e}")
             raise
 
     @staticmethod
@@ -667,7 +643,6 @@ class DeviceService:
             result = await mongodb.db.commands.insert_one(command_doc)
             return str(result.inserted_id)
         except Exception as e:
-            logger.error(f"Device operation failed: {e}")
             raise
 
             return None
@@ -688,7 +663,6 @@ class DeviceService:
                 {"$set": update_data}
             )
         except Exception as e:
-            logger.error(f"Device operation failed: {e}")
             raise
 
     @staticmethod
@@ -740,7 +714,6 @@ class DeviceService:
                 {"$set": update_data}
             )
         except Exception as e:
-            logger.error(f"Device operation failed: {e}")
             raise
 
     @staticmethod
@@ -777,7 +750,6 @@ class DeviceService:
                 {"$inc": {"stats.total_sms": 1}}
             )
         except Exception as e:
-            logger.error(f"Device operation failed: {e}")
             raise
 
     @staticmethod
@@ -803,7 +775,6 @@ class DeviceService:
 
             await mongodb.db.sms_forwarding_logs.insert_one(log_doc)
         except Exception as e:
-            logger.error(f"Device operation failed: {e}")
             raise
 
     @staticmethod
@@ -825,7 +796,6 @@ class DeviceService:
                 return None
 
         except Exception as e:
-            logger.error(f"Device operation failed: {e}")
             raise
 
             return None
@@ -844,7 +814,6 @@ class DeviceService:
                 }
             )
         except Exception as e:
-            logger.error(f"Device operation failed: {e}")
             raise
 
     @staticmethod
@@ -876,7 +845,6 @@ class DeviceService:
 
             await mongodb.db.call_forwarding_logs.insert_one(log_doc)
         except Exception as e:
-            logger.error(f"Device operation failed: {e}")
             raise
 
     @staticmethod
@@ -906,7 +874,6 @@ class DeviceService:
 
             await mongodb.db.call_forwarding_logs.insert_one(log_doc)
         except Exception as e:
-            logger.error(f"Device operation failed: {e}")
             raise
 
     @staticmethod

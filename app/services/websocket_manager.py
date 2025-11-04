@@ -41,7 +41,6 @@ class ConnectionManager:
 
             return True
         except Exception as e:
-            logger.error(f"Operation failed: {e}")
             raise
 
             self.disconnect(device_id)

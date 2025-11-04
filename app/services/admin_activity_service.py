@@ -5,9 +5,7 @@ from bson import ObjectId
 
 from ..database import mongodb
 from ..models.admin_schemas import AdminActivity, ActivityType
-import logging
 
-logger = logging.getLogger(__name__)
 
 class AdminActivityService:
 
@@ -60,7 +58,6 @@ class AdminActivityService:
                     pass
 
         except Exception as e:
-            logger.error(f"Activity log failed: {e}")
             raise
 
     @staticmethod
@@ -106,7 +103,6 @@ class AdminActivityService:
             return activities
 
         except Exception as e:
-            logger.error(f"Activity log failed: {e}")
             raise
 
             return []
@@ -136,7 +132,6 @@ class AdminActivityService:
             return stats
 
         except Exception as e:
-            logger.error(f"Activity log failed: {e}")
             raise
 
             return {}
@@ -157,7 +152,6 @@ class AdminActivityService:
             return logins
 
         except Exception as e:
-            logger.error(f"Activity log failed: {e}")
             raise
 
             return []
@@ -174,7 +168,6 @@ class AdminActivityService:
             return result.deleted_count
 
         except Exception as e:
-            logger.error(f"Activity log failed: {e}")
             raise
 
             return 0

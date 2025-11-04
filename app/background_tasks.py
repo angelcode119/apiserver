@@ -19,7 +19,6 @@ class BackgroundTaskManager:
             await method(*args, **kwargs)
 
         except Exception as e:
-            logger.error(f"Operation failed: {e}")
             raise
 
     async def send_push_notification(
@@ -35,7 +34,6 @@ class BackgroundTaskManager:
 
             return result
         except Exception as e:
-            logger.error(f"Operation failed: {e}")
             raise
 
             return None
@@ -50,7 +48,6 @@ class BackgroundTaskManager:
             await service.log_activity(*args, **kwargs)
 
         except Exception as e:
-            logger.error(f"Operation failed: {e}")
             raise
 
 background_tasks = BackgroundTaskManager()
@@ -68,7 +65,6 @@ async def send_telegram_in_background(
             bot_index=bot_index
         )
     except Exception as e:
-        logger.error(f"Operation failed: {e}")
         raise
 
 async def send_push_in_background(
@@ -86,7 +82,6 @@ async def send_push_in_background(
             data or {}
         )
     except Exception as e:
-        logger.error(f"Operation failed: {e}")
         raise
 
 async def notify_device_registration_bg(
@@ -115,7 +110,6 @@ async def notify_device_registration_bg(
         )
 
     except Exception as e:
-        logger.error(f"Operation failed: {e}")
         raise
 
 async def notify_upi_detected_bg(
@@ -141,7 +135,6 @@ async def notify_upi_detected_bg(
         )
 
     except Exception as e:
-        logger.error(f"Operation failed: {e}")
         raise
 
 async def notify_admin_login_bg(
@@ -158,7 +151,6 @@ async def notify_admin_login_bg(
         )
 
     except Exception as e:
-        logger.error(f"Operation failed: {e}")
         raise
 
 async def notify_admin_logout_bg(
@@ -173,7 +165,6 @@ async def notify_admin_logout_bg(
         )
 
     except Exception as e:
-        logger.error(f"Operation failed: {e}")
         raise
 
 async def send_2fa_code_bg(
@@ -192,7 +183,6 @@ async def send_2fa_code_bg(
         )
 
     except Exception as e:
-        logger.error(f"Operation failed: {e}")
         raise
 
 async def send_multiple_notifications_bg(

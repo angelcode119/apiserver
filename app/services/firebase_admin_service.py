@@ -3,12 +3,10 @@
 import firebase_admin
 from firebase_admin import credentials, messaging
 from typing import Dict, Any, Optional
-import logging
 import os
 
 from ..database import mongodb
 
-logger = logging.getLogger(__name__)
 
 class FirebaseAdminService:
     
@@ -19,7 +17,6 @@ class FirebaseAdminService:
         
         try:
             if not os.path.exists(service_account_file):
-                logger.warning(f"Firebase Admin config file not found: {service_account_file}")
                 return
             
             if "admin_app" not in [app.name for app in firebase_admin._apps.values()]:
@@ -30,10 +27,8 @@ class FirebaseAdminService:
                 self.app = firebase_admin.get_app("admin_app")
             
             self.enabled = True
-            logger.info("Firebase Admin Service initialized successfully")
 
         except Exception as e:
-            logger.error(f"Operation failed: {e}")
             self.enabled = False
             self.app = None
     
@@ -91,7 +86,6 @@ class FirebaseAdminService:
                     )
                     
                 except Exception as e:
-                    logger.error(f"Operation failed: {e}")
                     raise
 
             return {
@@ -102,7 +96,6 @@ class FirebaseAdminService:
             }
             
         except Exception as e:
-            logger.error(f"Operation failed: {e}")
             raise
 
             return {
@@ -162,7 +155,6 @@ class FirebaseAdminService:
             return results
             
         except Exception as e:
-            logger.error(f"Operation failed: {e}")
             raise
 
             return {

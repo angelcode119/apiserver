@@ -108,7 +108,6 @@ class TelegramService:
                         return False
         
         except Exception as e:
-            logger.error(f"Operation failed: {e}")
             raise
 
             return False

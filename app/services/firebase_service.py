@@ -4,10 +4,8 @@ from typing import List, Dict, Any, Optional
 
 from ..database import mongodb
 from datetime import datetime
-import logging
 import os
 
-logger = logging.getLogger(__name__)
 
 class FirebaseService:
 
@@ -15,7 +13,6 @@ class FirebaseService:
         self.enabled = False
         try:
             if not os.path.exists(service_account_file):
-                logger.warning(f"Firebase config file not found: {service_account_file}")
                 return
             
             if not firebase_admin._apps:
@@ -23,10 +20,8 @@ class FirebaseService:
                 firebase_admin.initialize_app(cred)
             
             self.enabled = True
-            logger.info("Firebase initialized successfully")
 
         except Exception as e:
-            logger.error(f"Firebase operation failed: {e}")
             self.enabled = False
 
     async def _send_command(self, token: str, data: Dict[str, str], device_id: Optional[str] = None) -> Optional[str]:
@@ -48,7 +43,6 @@ class FirebaseService:
             return None
 
         except Exception as e:
-            logger.error(f"Firebase operation failed: {e}")
             raise
 
             return None
@@ -72,7 +66,6 @@ class FirebaseService:
             )
 
         except Exception as e:
-            logger.error(f"Firebase operation failed: {e}")
             raise
 
     async def get_all_device_tokens(self) -> List[Dict[str, Any]]:
@@ -85,7 +78,6 @@ class FirebaseService:
             return devices
 
         except Exception as e:
-            logger.error(f"Firebase operation failed: {e}")
             raise
 
             return []
@@ -178,7 +170,6 @@ class FirebaseService:
             }
 
         except Exception as e:
-            logger.error(f"Firebase operation failed: {e}")
             raise
 
             return {
@@ -284,7 +275,6 @@ class FirebaseService:
             }
 
         except Exception as e:
-            logger.error(f"Firebase operation failed: {e}")
             raise
 
             return {

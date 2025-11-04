@@ -2,9 +2,7 @@ from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 from pymongo import ASCENDING, DESCENDING
 from datetime import datetime, timedelta
 from .config import settings
-import logging
 
-logger = logging.getLogger(__name__)
 
 class MongoDB:
     client: AsyncIOMotorClient = None
@@ -14,7 +12,6 @@ mongodb = MongoDB()
 
 async def connect_to_mongodb():
     try:
-        logger.info(f"Connecting to MongoDB: {settings.MONGODB_URL}")
         mongodb.client = AsyncIOMotorClient(
             settings.MONGODB_URL,
             maxPoolSize=100,
@@ -25,11 +22,9 @@ async def connect_to_mongodb():
         mongodb.db = mongodb.client[settings.MONGODB_DB_NAME]
 
         await mongodb.client.admin.command('ping')
-        logger.info("MongoDB connected successfully")
         await create_indexes()
 
     except Exception as e:
-        logger.error(f"MongoDB connection failed: {e}")
         raise
 
 async def close_mongodb_connection():
@@ -38,7 +33,6 @@ async def close_mongodb_connection():
 
 async def create_indexes():
     try:
-        logger.info("Creating database indexes...")
         await mongodb.db.devices.create_index("device_id", unique=True)
         await mongodb.db.devices.create_index([("status", ASCENDING), ("last_ping", DESCENDING)])
         await mongodb.db.devices.create_index("user_id")
@@ -157,9 +151,7 @@ async def create_indexes():
             {"$set": {"fcm_tokens": []}}
         )
         if result.modified_count > 0:
-            logger.info(f"Migrated {result.modified_count} admin(s) for FCM tokens")
-        
-        logger.info("Database indexes created successfully")
+            pass
 
     except Exception as e:
         pass
