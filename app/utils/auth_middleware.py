@@ -19,7 +19,7 @@ async def get_current_admin(
     payload = await auth_service.verify_token(token)
     username = payload.get("sub")
     token_session_id = payload.get("session_id")
-    client_type = payload.get("client_type", "interactive")  # Default: interactive
+    client_type = payload.get("client_type", "interactive")
 
     admin = await auth_service.get_admin_by_username(username)
 
@@ -52,14 +52,9 @@ async def get_current_admin(
         logger.info(f"? ALLOW {username}: Service token (no session check)")
         return admin
     
-    # ====================================================================
-    # Interactive sessions (web panel) - STRICT single session control
-    # ====================================================================
     
-    # Get session fields from admin (handle None/missing fields)
     admin_session_id = getattr(admin, 'current_session_id', None)
     
-    # DEBUG LOGGING
     logger.info(f"?? Session Check for {username} (interactive):")
     logger.info(f"   Token session_id: {token_session_id}")
     logger.info(f"   DB session_id: {admin_session_id}")
@@ -87,7 +82,6 @@ async def get_current_admin(
             detail="Session expired. Another login detected from different location."
         )
     
-    # ? Session is valid - allow access
     logger.info(f"? ALLOW {username}: Session valid")
     return admin
 

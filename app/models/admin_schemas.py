@@ -72,13 +72,10 @@ class AdminCreate(BaseModel):
     role: AdminRole = AdminRole.VIEWER
     permissions: List[AdminPermission] = Field(default_factory=list)
     
-    # Telegram 2FA Chat ID (personal numeric ID)
     telegram_2fa_chat_id: Optional[str] = None
     
-    # Telegram Bots (each bot has token + chat_id)
     telegram_bots: Optional[List[TelegramBot]] = None
     
-    # Expiry (????? ?????)
     expires_at: Optional[datetime] = Field(None, description="????? ????? (???????) - None = ???????")
 
 class AdminUpdate(BaseModel):
@@ -89,12 +86,12 @@ class AdminUpdate(BaseModel):
     is_active: Optional[bool] = None
     telegram_2fa_chat_id: Optional[str] = None
     telegram_bots: Optional[List[TelegramBot]] = None
-    expires_at: Optional[datetime] = None  # ????? ?????
+    expires_at: Optional[datetime] = None
 
 class AdminLogin(BaseModel):
     username: str
     password: str
-    fcm_token: Optional[str] = None  # Firebase Cloud Messaging token (???????)
+    fcm_token: Optional[str] = None
 
 class AdminResponse(BaseModel):
     username: str
@@ -108,7 +105,7 @@ class AdminResponse(BaseModel):
     is_active: bool
     last_login: Optional[datetime]
     login_count: int
-    expires_at: Optional[datetime] = None  # ????? ?????
+    expires_at: Optional[datetime] = None
     created_at: datetime
 
 class TokenResponse(BaseModel):

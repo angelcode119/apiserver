@@ -37,7 +37,7 @@ class Settings(BaseSettings):
     @field_validator('TELEGRAM_BOTS', mode='before')
     @classmethod
     def parse_telegram_bots(cls, v):
-        """Parse TELEGRAM_BOTS from JSON string or return empty list"""
+        
         if isinstance(v, str):
             try:
                 return json.loads(v) if v else []

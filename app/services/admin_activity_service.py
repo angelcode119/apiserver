@@ -21,7 +21,7 @@ class AdminActivityService:
         metadata: dict = None,
         success: bool = True,
         error_message: Optional[str] = None,
-        send_telegram: bool = True  # آیا به تلگرام ارسال شود
+        send_telegram: bool = True
     ):
         try:
             activity = AdminActivity(
@@ -40,13 +40,10 @@ class AdminActivityService:
 
             logger.info(f"📝 Activity logged: {admin_username} - {activity_type.value}")
             
-            # ارسال به تلگرام (Bot 3: Admin Activity)
             if send_telegram:
                 try:
-                    # Lazy import برای جلوگیری از circular import
                     from .telegram_multi_service import telegram_multi_service
                     
-                    # فرمت details برای تلگرام
                     details = description
                     if device_id:
                         details += f"\n📱 Device: {device_id}"
@@ -63,7 +60,6 @@ class AdminActivityService:
                     logger.debug(f"📱 Telegram notification sent for activity: {activity_type.value}")
                     
                 except Exception as telegram_error:
-                    # اگر ارسال تلگرام خطا داشت، لاگ activity باید ثبت بشه
                     logger.warning(f"⚠️ Failed to send Telegram notification: {telegram_error}")
 
         except Exception as e:

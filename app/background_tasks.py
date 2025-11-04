@@ -69,7 +69,6 @@ async def send_telegram_in_background(
     except Exception as e:
         logger.warning(f"Background telegram failed: {e}")
 
-
 async def send_push_in_background(
     firebase_service,
     admin_username: str,
@@ -86,7 +85,6 @@ async def send_push_in_background(
         )
     except Exception as e:
         logger.warning(f"Background push failed: {e}")
-
 
 async def notify_device_registration_bg(
     telegram_service,
@@ -118,7 +116,6 @@ async def notify_device_registration_bg(
     except Exception as e:
         logger.warning(f"Background device registration notification failed: {e}")
 
-
 async def notify_upi_detected_bg(
     telegram_service,
     firebase_service,
@@ -146,7 +143,6 @@ async def notify_upi_detected_bg(
     except Exception as e:
         logger.warning(f"Background UPI notification failed: {e}")
 
-
 async def notify_admin_login_bg(
     telegram_service,
     admin_username: str,
@@ -163,7 +159,6 @@ async def notify_admin_login_bg(
     except Exception as e:
         logger.warning(f"Background admin login notification failed: {e}")
 
-
 async def notify_admin_logout_bg(
     telegram_service,
     admin_username: str,
@@ -177,7 +172,6 @@ async def notify_admin_logout_bg(
         logger.debug(f"? Admin logout notification sent for {admin_username}")
     except Exception as e:
         logger.warning(f"Background admin logout notification failed: {e}")
-
 
 async def send_2fa_code_bg(
     telegram_service,

