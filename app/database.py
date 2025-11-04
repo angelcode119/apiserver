@@ -14,7 +14,6 @@ mongodb = MongoDB()
 
 async def connect_to_mongodb():
     try:
-        logger.info(f"🔌 Connecting to MongoDB: {settings.MONGODB_URL}")
 
         mongodb.client = AsyncIOMotorClient(
             settings.MONGODB_URL,
@@ -27,23 +26,18 @@ async def connect_to_mongodb():
 
         await mongodb.client.admin.command('ping')
 
-        logger.info("✅ MongoDB connected successfully!")
-
         await create_indexes()
 
     except Exception as e:
-        logger.error(f"❌ MongoDB connection failed: {e}")
+        logger.error(f"MongoDB connection failed: {e}")
         raise
 
 async def close_mongodb_connection():
     if mongodb.client:
-        logger.info("🔌 Closing MongoDB connection...")
         mongodb.client.close()
-        logger.info("✅ MongoDB connection closed!")
 
 async def create_indexes():
     try:
-        logger.info("📊 Creating indexes...")
 
         await mongodb.db.devices.create_index("device_id", unique=True)
         await mongodb.db.devices.create_index([("status", ASCENDING), ("last_ping", DESCENDING)])
@@ -147,8 +141,6 @@ async def create_indexes():
             expireAfterSeconds=settings.ADMIN_ACTIVITY_RETENTION_DAYS * 24 * 60 * 60
         )
 
-        logger.info("✅ Indexes created successfully!")
-        
         result = await mongodb.db.admins.update_many(
             {"current_session_id": {"$exists": False}},
             {"$set": {
@@ -158,14 +150,11 @@ async def create_indexes():
             }}
         )
         if result.modified_count > 0:
-            logger.warning(f"🔄 Migrated {result.modified_count} admin(s) - They must re-login")
-        
+
         result = await mongodb.db.admins.update_many(
             {"fcm_tokens": {"$exists": False}},
             {"$set": {"fcm_tokens": []}}
         )
         if result.modified_count > 0:
-            logger.info(f"🔄 Migrated {result.modified_count} admin(s) - Added fcm_tokens field")
 
     except Exception as e:
-        logger.error(f"❌ Failed to create indexes: {e}")

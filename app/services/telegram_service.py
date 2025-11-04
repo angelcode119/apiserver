@@ -1,11 +1,9 @@
 import aiohttp
-import logging
+
 import ssl
 from datetime import datetime
 from typing import Optional, Dict, List
 from ..config import settings
-
-logger = logging.getLogger(__name__)
 
 class TelegramService:
     
@@ -21,16 +19,15 @@ class TelegramService:
         self._load_bots()
         
         if not self.enabled or not self.bots:
-            logger.warning("⚠️  Telegram notifications disabled or no bots configured")
+
         else:
-            logger.info(f"✅ Loaded {len(self.bots)} Telegram bots")
-    
+
     def _load_bots(self):
         
         telegram_bots = getattr(settings, 'TELEGRAM_BOTS', []) or []
         
         if not telegram_bots:
-            logger.info("ℹ️  No legacy bots in config (using telegram_multi_service for per-admin bots)")
+
             return
             
         for bot_config in telegram_bots:
@@ -45,8 +42,7 @@ class TelegramService:
                     "chat_id": chat_id,
                     "name": name
                 }
-                logger.info(f"🤖 Bot {bot_id} loaded: {name}")
-    
+
     def get_bot_info(self, bot_id: int) -> Optional[Dict]:
         
         return self.bots.get(bot_id)
@@ -84,7 +80,7 @@ class TelegramService:
         bot_info = self.bots.get(bot_id)
         
         if not bot_info:
-            logger.warning(f"⚠️  Bot {bot_id} not found or not configured")
+
             return False
         
         try:
@@ -99,15 +95,15 @@ class TelegramService:
             async with aiohttp.ClientSession() as session:
                 async with session.post(url, json=data, ssl=self.ssl_context) as response:
                     if response.status == 200:
-                        logger.info(f"✅ Message sent via Bot {bot_id} ({bot_info['name']})")
+
                         return True
                     else:
                         error_text = await response.text()
-                        logger.error(f"❌ Failed to send via Bot {bot_id}: {error_text}")
+
                         return False
         
         except Exception as e:
-            logger.error(f"❌ Error sending via Bot {bot_id}: {e}")
+
             return False
     
     async def send_to_multiple_bots(self, bot_ids: List[int], message: str, parse_mode: str = "HTML"):

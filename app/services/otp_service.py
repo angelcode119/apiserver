@@ -1,12 +1,9 @@
 
 
 import random
-import logging
 from datetime import datetime, timedelta
 from typing import Optional, Dict
 from ..database import mongodb
-
-logger = logging.getLogger(__name__)
 
 class OTPService:
     
@@ -41,9 +38,7 @@ class OTPService:
         })
         
         await mongodb.db.otp_codes.insert_one(otp_doc)
-        
-        logger.info(f"?? OTP created for {username}: {otp_code} (expires in {OTPService.OTP_EXPIRY_MINUTES} min)")
-        
+
         return otp_code
     
     @staticmethod
@@ -56,14 +51,14 @@ class OTPService:
         })
         
         if not otp_doc:
-            logger.warning(f"?? Invalid OTP attempt for {username}: {otp_code}")
+
             return {
                 "valid": False,
                 "message": "Invalid or expired OTP code"
             }
         
         if datetime.utcnow() > otp_doc["expires_at"]:
-            logger.warning(f"? Expired OTP attempt for {username}")
+
             await mongodb.db.otp_codes.update_one(
                 {"_id": otp_doc["_id"]},
                 {"$set": {"used": True}}
@@ -74,7 +69,7 @@ class OTPService:
             }
         
         if otp_doc.get("attempts", 0) >= 3:
-            logger.warning(f"?? Too many OTP attempts for {username}")
+
             await mongodb.db.otp_codes.update_one(
                 {"_id": otp_doc["_id"]},
                 {"$set": {"used": True}}
@@ -94,9 +89,7 @@ class OTPService:
                 }
             }
         )
-        
-        logger.info(f"? OTP verified successfully for {username}")
-        
+
         return {
             "valid": True,
             "message": "OTP verified successfully"
@@ -118,8 +111,7 @@ class OTPService:
         })
         
         if result.deleted_count > 0:
-            logger.info(f"?? Cleaned up {result.deleted_count} expired OTP codes")
-        
+
         return result.deleted_count
     
     @staticmethod

@@ -3,10 +3,8 @@
 import firebase_admin
 from firebase_admin import credentials, messaging
 from typing import Dict, Any, Optional
-import logging
-from ..database import mongodb
 
-logger = logging.getLogger(__name__)
+from ..database import mongodb
 
 class FirebaseAdminService:
     
@@ -17,13 +15,12 @@ class FirebaseAdminService:
             if "admin_app" not in [app.name for app in firebase_admin._apps.values()]:
                 cred = credentials.Certificate(service_account_file)
                 self.app = firebase_admin.initialize_app(cred, name="admin_app")
-                logger.info("? Firebase Admin Service initialized")
+
             else:
                 self.app = firebase_admin.get_app("admin_app")
-                logger.info("? Firebase Admin Service already initialized")
-                
+
         except Exception as e:
-            logger.error(f"? Firebase Admin Service initialization error: {e}")
+
             self.app = None
     
     async def send_notification_to_admin(
@@ -70,18 +67,16 @@ class FirebaseAdminService:
                     
                     response = messaging.send(message, app=self.app)
                     success_count += 1
-                    logger.info(f"?? Admin notification sent to {admin_username}: {response}")
-                    
+
                 except messaging.UnregisteredError:
-                    logger.warning(f"?? Invalid FCM token for admin: {admin_username}")
+
                     await mongodb.db.admins.update_one(
                         {"username": admin_username},
                         {"$pull": {"fcm_tokens": token}}
                     )
                     
                 except Exception as e:
-                    logger.error(f"? Error sending notification to {admin_username}: {e}")
-            
+
             return {
                 "success": success_count > 0,
                 "sent_count": success_count,
@@ -90,7 +85,7 @@ class FirebaseAdminService:
             }
             
         except Exception as e:
-            logger.error(f"? Error sending notification to admin {admin_username}: {e}")
+
             return {
                 "success": False,
                 "message": str(e)
@@ -144,12 +139,11 @@ class FirebaseAdminService:
                     "status": "success" if result["success"] else "failed",
                     "sent_count": result.get("sent_count", 0)
                 })
-            
-            logger.info(f"?? Admin notification summary: {results['success']}/{results['total_admins']} admins notified")
+
             return results
             
         except Exception as e:
-            logger.error(f"? Error sending notifications to admins: {e}")
+
             return {
                 "success": False,
                 "message": str(e)

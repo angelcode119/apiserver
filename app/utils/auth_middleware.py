@@ -1,7 +1,6 @@
 from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from typing import Optional
-import logging
 from datetime import datetime
 
 from ..services.auth_service import auth_service
@@ -9,7 +8,6 @@ from ..models.admin_schemas import Admin, AdminPermission
 from ..database import mongodb
 
 security = HTTPBearer()
-logger = logging.getLogger(__name__)
 
 async def get_current_admin(
     credentials: HTTPAuthorizationCredentials = Depends(security)
@@ -38,7 +36,7 @@ async def get_current_admin(
     if admin.expires_at:
         now = datetime.utcnow()
         if now > admin.expires_at:
-            logger.warning(f"? Admin {username} has expired at {admin.expires_at}")
+
             await mongodb.db.admins.update_one(
                 {"username": username},
                 {"$set": {"is_active": False}}
@@ -49,40 +47,33 @@ async def get_current_admin(
             )
     
     if client_type == "service":
-        logger.info(f"? ALLOW {username}: Service token (no session check)")
+
         return admin
     
     
     admin_session_id = getattr(admin, 'current_session_id', None)
-    
-    logger.info(f"?? Session Check for {username} (interactive):")
-    logger.info(f"   Token session_id: {token_session_id}")
-    logger.info(f"   DB session_id: {admin_session_id}")
-    
+
     if admin_session_id is None:
-        logger.warning(f"? REJECT {username}: No session_id in database")
+
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="No active session. Please login again."
         )
     
     if not token_session_id:
-        logger.warning(f"? REJECT {username}: Token has no session_id")
+
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token format. Please login again."
         )
     
     if token_session_id != admin_session_id:
-        logger.warning(f"? REJECT {username}: Session mismatch!")
-        logger.warning(f"   Token has: {token_session_id[:20]}...")
-        logger.warning(f"   DB has: {admin_session_id[:20]}...")
+
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Session expired. Another login detected from different location."
         )
-    
-    logger.info(f"? ALLOW {username}: Session valid")
+
     return admin
 
 async def get_optional_admin(

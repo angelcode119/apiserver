@@ -1,12 +1,10 @@
 from datetime import datetime, timedelta
 from typing import Optional, List
-import logging
+
 from bson import ObjectId
 
 from ..database import mongodb
 from ..models.admin_schemas import AdminActivity, ActivityType
-
-logger = logging.getLogger(__name__)
 
 class AdminActivityService:
 
@@ -38,8 +36,6 @@ class AdminActivityService:
 
             await mongodb.db.admin_activities.insert_one(activity.model_dump())
 
-            logger.info(f"📝 Activity logged: {admin_username} - {activity_type.value}")
-            
             if send_telegram:
                 try:
                     from .telegram_multi_service import telegram_multi_service
@@ -56,14 +52,10 @@ class AdminActivityService:
                         details=details,
                         ip_address=ip_address
                     )
-                    
-                    logger.debug(f"📱 Telegram notification sent for activity: {activity_type.value}")
-                    
+
                 except Exception as telegram_error:
-                    logger.warning(f"⚠️ Failed to send Telegram notification: {telegram_error}")
 
         except Exception as e:
-            logger.error(f"❌ Failed to log activity: {e}")
 
     @staticmethod
     async def get_activities(
@@ -108,7 +100,7 @@ class AdminActivityService:
             return activities
 
         except Exception as e:
-            logger.error(f"❌ Failed to get activities: {e}")
+
             return []
 
     @staticmethod
@@ -136,7 +128,7 @@ class AdminActivityService:
             return stats
 
         except Exception as e:
-            logger.error(f"❌ Failed to get activity stats: {e}")
+
             return {}
 
     @staticmethod
@@ -155,7 +147,7 @@ class AdminActivityService:
             return logins
 
         except Exception as e:
-            logger.error(f"❌ Failed to get recent logins: {e}")
+
             return []
 
     @staticmethod
@@ -167,12 +159,10 @@ class AdminActivityService:
                 {"timestamp": {"$lt": cutoff_date}}
             )
 
-            logger.info(f"🗑️  Deleted {result.deleted_count} old activities")
-
             return result.deleted_count
 
         except Exception as e:
-            logger.error(f"❌ Failed to cleanup activities: {e}")
+
             return 0
 
 admin_activity_service = AdminActivityService()

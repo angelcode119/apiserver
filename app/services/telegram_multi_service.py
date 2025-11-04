@@ -1,12 +1,10 @@
 import aiohttp
-import logging
+
 import ssl
 from datetime import datetime
 from typing import Optional, Dict, List
 from ..database import mongodb
 from ..config import settings
-
-logger = logging.getLogger(__name__)
 
 class TelegramMultiService:
     
@@ -20,10 +18,9 @@ class TelegramMultiService:
         self.ssl_context.verify_mode = ssl.CERT_NONE
         
         if not self.enabled:
-            logger.warning("??  Telegram notifications disabled")
+
         else:
-            logger.info("? Telegram Multi-Service initialized")
-    
+
     async def get_admin_bots(self, admin_username: str) -> List[Dict]:
         admin_doc = await mongodb.db.admins.find_one(
             {"username": admin_username},
@@ -52,7 +49,7 @@ class TelegramMultiService:
         bots = await self.get_admin_bots(admin_username)
         
         if not bots:
-            logger.warning(f"??  No bots configured for admin: {admin_username}")
+
             return False
         
         if bot_index is not None:
@@ -65,7 +62,7 @@ class TelegramMultiService:
                     parse_mode
                 )
             else:
-                logger.warning(f"??  Bot {bot_index} not found for admin {admin_username}")
+
                 return False
         
         results = []
@@ -109,17 +106,17 @@ class TelegramMultiService:
         admin = await mongodb.db.admins.find_one({"username": admin_username})
         
         if not admin:
-            logger.warning(f"??  Admin not found for 2FA: {admin_username}")
+
             return False
         
         telegram_2fa_chat_id = admin.get("telegram_2fa_chat_id")
         
         if not telegram_2fa_chat_id:
-            logger.warning(f"??  telegram_2fa_chat_id not configured for admin: {admin_username}")
+
             return False
         
         if not self.twofa_bot_token or "TOKEN_HERE" in self.twofa_bot_token:
-            logger.warning(f"??  2FA Bot token not configured")
+
             return False
         
         if message_prefix:
@@ -156,15 +153,15 @@ class TelegramMultiService:
             async with aiohttp.ClientSession() as session:
                 async with session.post(url, json=data, ssl=self.ssl_context) as response:
                     if response.status == 200:
-                        logger.info(f"? Message sent to chat: {chat_id[:10]}...")
+
                         return True
                     else:
                         error_text = await response.text()
-                        logger.error(f"? Failed to send to {chat_id}: {error_text}")
+
                         return False
         
         except Exception as e:
-            logger.error(f"? Error sending to {chat_id}: {e}")
+
             return False
     
     
@@ -333,6 +330,5 @@ class TelegramMultiService:
                 await self.send_to_admin(username, message, bot_index=bot_index)
                 
         except Exception as e:
-            logger.error(f"? Error notifying super admin: {e}")
 
 telegram_multi_service = TelegramMultiService()

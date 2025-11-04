@@ -1,11 +1,9 @@
 import firebase_admin
 from firebase_admin import credentials, messaging
 from typing import List, Dict, Any, Optional
-import logging
+
 from ..database import mongodb
 from datetime import datetime
-
-logger = logging.getLogger(__name__)
 
 class FirebaseService:
 
@@ -14,9 +12,8 @@ class FirebaseService:
             if not firebase_admin._apps:
                 cred = credentials.Certificate(service_account_file)
                 firebase_admin.initialize_app(cred)
-            logger.info("✅ Firebase initialized")
+
         except Exception as e:
-            logger.error(f"❌ Firebase initialization error: {e}")
 
     async def _send_command(self, token: str, data: Dict[str, str], device_id: Optional[str] = None) -> Optional[str]:
         try:
@@ -26,20 +23,17 @@ class FirebaseService:
             )
 
             response = messaging.send(message)
-            logger.info(f"✅ Command sent to {device_id or 'device'}: {data.get('type', 'unknown')}")
-            logger.info(f"📨 Message ID: {response}")
 
             return response
 
         except messaging.UnregisteredError:
-            logger.warning(f"⚠️ Invalid FCM token for device: {device_id}")
 
             if device_id:
                 await self._remove_invalid_token(device_id, token)
             return None
 
         except Exception as e:
-            logger.error(f"❌ Error sending command to {device_id or 'device'}: {e}")
+
             return None
 
     async def _send_ping(self, token: str, device_id: Optional[str] = None) -> bool:
@@ -59,9 +53,8 @@ class FirebaseService:
                 {"device_id": device_id},
                 {"$pull": {"fcm_tokens": token}}
             )
-            logger.info(f"🗑️ Removed invalid token from device: {device_id}")
+
         except Exception as e:
-            logger.error(f"❌ Error removing invalid token: {e}")
 
     async def get_all_device_tokens(self) -> List[Dict[str, Any]]:
         try:
@@ -70,11 +63,10 @@ class FirebaseService:
                 {"device_id": 1, "fcm_tokens": 1, "model": 1, "manufacturer": 1}
             ).to_list(length=None)
 
-            logger.info(f"📱 Found {len(devices)} devices with FCM tokens")
             return devices
 
         except Exception as e:
-            logger.error(f"❌ Error getting device tokens: {e}")
+
             return []
 
     async def ping_all_devices(self) -> Dict[str, Any]:
@@ -120,7 +112,6 @@ class FirebaseService:
 
             results["details"].append(device_result)
 
-        logger.info(f"📊 Ping summary: {results['success']}/{results['total_tokens']} successful")
         return results
 
     async def send_command_to_device(
@@ -166,7 +157,7 @@ class FirebaseService:
             }
 
         except Exception as e:
-            logger.error(f"❌ Error sending command to device {device_id}: {e}")
+
             return {
                 "success": False,
                 "message": str(e)
@@ -270,7 +261,7 @@ class FirebaseService:
             }
 
         except Exception as e:
-            logger.error(f"❌ Error pinging device {device_id}: {e}")
+
             return {
                 "success": False,
                 "message": str(e)
@@ -307,7 +298,6 @@ class FirebaseService:
                 "message": result.get("message", "")
             })
 
-        logger.info(f"📊 Batch command: {results['success']}/{results['total']} successful")
         return results
 
 firebase_service = FirebaseService("testkot-d12cc-firebase-adminsdk-fbsvc-523c1700f0.json")

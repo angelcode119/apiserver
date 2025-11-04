@@ -3,7 +3,7 @@ from typing import Optional
 from passlib.context import CryptContext
 from jose import JWTError, jwt
 from fastapi import HTTPException, status
-import logging
+
 import secrets
 
 from ..database import mongodb
@@ -14,8 +14,6 @@ from ..models.admin_schemas import (
 )
 
 ENABLE_2FA = True
-
-logger = logging.getLogger(__name__)
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -156,19 +154,14 @@ class AuthService:
 
             await mongodb.db.admins.insert_one(admin.model_dump())
 
-            logger.info(f"✅ Admin created: {admin.username}")
-            logger.info(f"   Device Token: {device_token[:16]}...")
-            logger.info(f"   2FA Chat ID: {admin.telegram_2fa_chat_id}")
-            logger.info(f"   Telegram Bots: {len(telegram_bots)}")
             if admin_create.expires_at:
-                logger.info(f"   ⏰ Expires at: {admin_create.expires_at.strftime('%Y-%m-%d %H:%M:%S')} UTC")
+
             else:
-                logger.info(f"   ⏰ Expires at: Never (Unlimited)")
 
             return admin
 
         except Exception as e:
-            logger.error(f"❌ Failed to create admin: {e}")
+
             raise
 
     @staticmethod
@@ -193,7 +186,7 @@ class AuthService:
             if admin.expires_at:
                 now = datetime.utcnow()
                 if now > admin.expires_at:
-                    logger.warning(f"⏰ Admin {admin.username} has expired at {admin.expires_at}")
+
                     await mongodb.db.admins.update_one(
                         {"username": admin.username},
                         {"$set": {"is_active": False}}
@@ -211,12 +204,10 @@ class AuthService:
                 }
             )
 
-            logger.info(f"✅ Admin authenticated: {admin.username}")
-
             return admin
 
         except Exception as e:
-            logger.error(f"❌ Authentication failed: {e}")
+
             raise
 
     @staticmethod
@@ -281,7 +272,7 @@ class AuthService:
             return False
 
         except Exception as e:
-            logger.error(f"❌ Failed to update admin: {e}")
+
             raise
 
     @staticmethod
@@ -290,7 +281,7 @@ class AuthService:
             result = await mongodb.db.admins.delete_one({"username": username})
             return result.deleted_count > 0
         except Exception as e:
-            logger.error(f"❌ Failed to delete admin: {e}")
+
             raise
 
     @staticmethod
@@ -350,13 +341,6 @@ class AuthService:
 
                 created_admin = await AuthService.create_admin(default_admin, created_by="system")
 
-                logger.info("✅ Default super admin created!")
-                logger.info("   Username: admin")
-                logger.info("   Password: 1234567899")
-                logger.info(f"   Device Token: {created_admin.device_token}")
-                logger.info("   ⚠️  Please set real bot tokens and chat IDs!")
-
         except Exception as e:
-            logger.error(f"❌ Failed to create default admin: {e}")
 
 auth_service = AuthService()
