@@ -6,9 +6,16 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.websockets import WebSocketDisconnect as StarletteWebSocketDisconnect
 from datetime import datetime, timedelta
 import json
+import logging
 
 import asyncio
 from typing import Optional
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 from .config import settings
 from .database import connect_to_mongodb, close_mongodb_connection, mongodb
