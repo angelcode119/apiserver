@@ -13,8 +13,7 @@ from ..models.admin_schemas import (
     AdminResponse, AdminRole, AdminPermission, ROLE_PERMISSIONS, TelegramBot
 )
 
-# Flag to enable/disable 2FA
-ENABLE_2FA = True  # Set to False to disable 2FA
+ENABLE_2FA = True
 
 logger = logging.getLogger(__name__)
 
@@ -35,12 +34,10 @@ class AuthService:
     
     @staticmethod
     def generate_device_token() -> str:
-        """Generate unique 32-character token for admin"""
         return secrets.token_urlsafe(32)
 
     @staticmethod
     def generate_session_id() -> str:
-        """Generate unique session ID for single session control"""
         return secrets.token_urlsafe(32)
     
     @staticmethod
@@ -49,18 +46,15 @@ class AuthService:
         expires_delta: Optional[timedelta] = None, 
         session_id: str = None, 
         is_bot: bool = False,
-        client_type: str = None  # "interactive" or "service"
+        client_type: str = None
     ) -> str:
         to_encode = data.copy()
 
-        # Determine client type
         if client_type is None:
             client_type = "service" if is_bot else "interactive"
         
         to_encode.update({"client_type": client_type})
         
-        # Service tokens: NO expiry (never expires)
-        # Interactive tokens: Normal expiry (24 hours default)
         if client_type != "service":
             if expires_delta:
                 expire = datetime.utcnow() + expires_delta
@@ -68,21 +62,14 @@ class AuthService:
                 expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
             to_encode.update({"exp": expire})
         
-        # Add session_id ONLY for interactive sessions
-        # Service/bot tokens stay connected forever (no session check)
         if session_id and client_type == "interactive":
             to_encode.update({"session_id": session_id})
         
         encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=ALGORITHM)
-
         return encoded_jwt
     
     @staticmethod
     def create_temp_token(username: str) -> str:
-        """
-        ایجاد توکن موقت برای مرحله اول 2FA
-        این توکن فقط برای 5 دقیقه معتبر است و فقط برای verify کردن OTP استفاده میشه
-        """
         data = {
             "sub": username,
             "type": "temp_2fa",
@@ -92,7 +79,6 @@ class AuthService:
     
     @staticmethod
     def verify_temp_token(token: str) -> Optional[str]:
-        """تایید توکن موقت و برگرداندن username"""
         try:
             payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[ALGORITHM])
             if payload.get("type") != "temp_2fa":
@@ -123,7 +109,6 @@ class AuthService:
     @staticmethod
     async def create_admin(admin_create: AdminCreate, created_by: str = None) -> Admin:
         try:
-
             existing = await mongodb.db.admins.find_one({"username": admin_create.username})
             if existing:
                 raise HTTPException(
@@ -136,15 +121,10 @@ class AuthService:
             if not admin_create.permissions:
                 admin_create.permissions = ROLE_PERMISSIONS[admin_create.role]
             
-            # 🔑 Generate unique device token
             device_token = AuthService.generate_device_token()
-            
-            # 🤖 Validate and setup bots (must be 5 bots with token + chat_id)
             telegram_bots = admin_create.telegram_bots or []
             
             if len(telegram_bots) == 0:
-                # اگه هیچ رباتی نداره، 5 تا placeholder بساز (مثل default admin)
-                logger.info(f"📝 Creating 5 placeholder bots for {admin_create.username}")
                 telegram_bots = [
                     TelegramBot(
                         bot_id=i,
@@ -155,7 +135,6 @@ class AuthService:
                     for i in range(1, 6)
                 ]
             elif len(telegram_bots) != 5:
-                # اگه تعداد اشتباهه، خطا بده
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=f"Admin must have exactly 5 telegram bots, got {len(telegram_bots)}"
@@ -172,7 +151,7 @@ class AuthService:
                 telegram_2fa_chat_id=admin_create.telegram_2fa_chat_id,
                 telegram_bots=telegram_bots,
                 created_by=created_by,
-                expires_at=admin_create.expires_at  # مستقیم از input میگیریم
+                expires_at=admin_create.expires_at
             )
 
             await mongodb.db.admins.insert_one(admin.model_dump())
@@ -195,7 +174,6 @@ class AuthService:
     @staticmethod
     async def authenticate_admin(login: AdminLogin) -> Optional[Admin]:
         try:
-
             admin_doc = await mongodb.db.admins.find_one({"username": login.username})
 
             if not admin_doc:
@@ -212,12 +190,10 @@ class AuthService:
                     detail="Admin account is disabled"
                 )
             
-            # ⏰ چک کردن تاریخ انقضا
             if admin.expires_at:
                 now = datetime.utcnow()
                 if now > admin.expires_at:
                     logger.warning(f"⏰ Admin {admin.username} has expired at {admin.expires_at}")
-                    # غیرفعال کردن ادمین منقضی شده
                     await mongodb.db.admins.update_one(
                         {"username": admin.username},
                         {"$set": {"is_active": False}}
@@ -277,7 +253,6 @@ class AuthService:
     
     @staticmethod
     async def get_admin_by_token(device_token: str) -> Optional[Admin]:
-        """پیدا کردن ادمین با توکن دستگاه"""
         admin_doc = await mongodb.db.admins.find_one({"device_token": device_token})
         
         if admin_doc:
@@ -329,7 +304,6 @@ class AuthService:
             existing = await mongodb.db.admins.find_one({"role": AdminRole.SUPER_ADMIN})
 
             if not existing:
-                # 🤖 Load Administrator's 5 bots from config (like 2FA bot)
                 admin_bots = [
                     TelegramBot(
                         bot_id=1,

@@ -1,8 +1,3 @@
-"""
-Multi-Telegram service with support for multiple bots
-Each admin has 5 bots (each with token + chat_id)
-"""
-
 import aiohttp
 import logging
 import ssl
@@ -14,12 +9,9 @@ from ..config import settings
 logger = logging.getLogger(__name__)
 
 class TelegramMultiService:
-    """Telegram service with support for multiple bots per admin"""
     
     def __init__(self):
         self.enabled = settings.TELEGRAM_ENABLED
-        
-        # 2FA Bot (separate for authentication)
         self.twofa_bot_token = settings.TELEGRAM_2FA_BOT_TOKEN
         self.twofa_chat_id = settings.TELEGRAM_2FA_CHAT_ID
         
@@ -33,14 +25,12 @@ class TelegramMultiService:
             logger.info("? Telegram Multi-Service initialized")
     
     async def get_admin_bots(self, admin_username: str) -> List[Dict]:
-        """Get admin's Telegram bots (each bot has token + chat_id)"""
         admin_doc = await mongodb.db.admins.find_one(
             {"username": admin_username},
             {"telegram_bots": 1}
         )
         
         if admin_doc and "telegram_bots" in admin_doc:
-            # Filter valid bots (have real tokens)
             valid_bots = [
                 bot for bot in admin_doc["telegram_bots"]
                 if "TOKEN_HERE" not in bot.get("token", "")
@@ -56,15 +46,6 @@ class TelegramMultiService:
         bot_index: Optional[int] = None,
         parse_mode: str = "HTML"
     ) -> bool:
-        """
-        Send message to admin's Telegram bot(s)
-        
-        Args:
-            admin_username: Admin username
-            message: Message text
-            bot_index: If specified, send via that bot only (1-5), else send via all
-            parse_mode: Parse mode
-        """
         if not self.enabled:
             return False
         
@@ -74,7 +55,6 @@ class TelegramMultiService:
             logger.warning(f"??  No bots configured for admin: {admin_username}")
             return False
         
-        # If bot_index specified, send via that bot only
         if bot_index is not None:
             target_bot = next((bot for bot in bots if bot["bot_id"] == bot_index), None)
             if target_bot:
@@ -88,7 +68,6 @@ class TelegramMultiService:
                 logger.warning(f"??  Bot {bot_index} not found for admin {admin_username}")
                 return False
         
-        # Send via all bots
         results = []
         for bot in bots:
             result = await self._send_message_to_chat(

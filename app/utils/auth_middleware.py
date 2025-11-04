@@ -35,12 +35,10 @@ async def get_current_admin(
             detail="Admin account is disabled"
         )
     
-    # ? EXPIRY CHECK - Check if admin account has expired
     if admin.expires_at:
         now = datetime.utcnow()
         if now > admin.expires_at:
             logger.warning(f"? Admin {username} has expired at {admin.expires_at}")
-            # Auto-disable expired admin
             await mongodb.db.admins.update_one(
                 {"username": username},
                 {"$set": {"is_active": False}}
@@ -49,12 +47,6 @@ async def get_current_admin(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=f"Account expired on {admin.expires_at.strftime('%Y-%m-%d')}. Please contact administrator."
             )
-    
-    # ====================================================================
-    # ?? SINGLE SESSION CONTROL - ONLY FOR INTERACTIVE CLIENTS
-    # ====================================================================
-    # Service tokens (bots, background services) skip session check
-    # They stay connected forever until admin is disabled or token expires
     
     if client_type == "service":
         logger.info(f"? ALLOW {username}: Service token (no session check)")
@@ -72,9 +64,6 @@ async def get_current_admin(
     logger.info(f"   Token session_id: {token_session_id}")
     logger.info(f"   DB session_id: {admin_session_id}")
     
-    # Case 1: Admin has NO session_id in database
-    # This means they never logged in after single-session was implemented
-    # OR their session was cleared - they MUST login again
     if admin_session_id is None:
         logger.warning(f"? REJECT {username}: No session_id in database")
         raise HTTPException(
@@ -82,8 +71,6 @@ async def get_current_admin(
             detail="No active session. Please login again."
         )
     
-    # Case 2: Token has NO session_id (old token before single-session)
-    # Reject all old tokens
     if not token_session_id:
         logger.warning(f"? REJECT {username}: Token has no session_id")
         raise HTTPException(
@@ -91,8 +78,6 @@ async def get_current_admin(
             detail="Invalid token format. Please login again."
         )
     
-    # Case 3: Session ID mismatch (new login from another device)
-    # Only the most recent login is valid
     if token_session_id != admin_session_id:
         logger.warning(f"? REJECT {username}: Session mismatch!")
         logger.warning(f"   Token has: {token_session_id[:20]}...")

