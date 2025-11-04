@@ -1,12 +1,11 @@
 from datetime import datetime, timedelta
 from typing import Optional, List
-import logging
+
 from bson import ObjectId
 
 from ..database import mongodb
 from ..models.admin_schemas import AdminActivity, ActivityType
 
-logger = logging.getLogger(__name__)
 
 class AdminActivityService:
 
@@ -21,7 +20,7 @@ class AdminActivityService:
         metadata: dict = None,
         success: bool = True,
         error_message: Optional[str] = None,
-        send_telegram: bool = True  # آیا به تلگرام ارسال شود
+        send_telegram: bool = True
     ):
         try:
             activity = AdminActivity(
@@ -38,15 +37,10 @@ class AdminActivityService:
 
             await mongodb.db.admin_activities.insert_one(activity.model_dump())
 
-            logger.info(f"📝 Activity logged: {admin_username} - {activity_type.value}")
-            
-            # ارسال به تلگرام (Bot 3: Admin Activity)
             if send_telegram:
                 try:
-                    # Lazy import برای جلوگیری از circular import
                     from .telegram_multi_service import telegram_multi_service
                     
-                    # فرمت details برای تلگرام
                     details = description
                     if device_id:
                         details += f"\n📱 Device: {device_id}"
@@ -59,15 +53,12 @@ class AdminActivityService:
                         details=details,
                         ip_address=ip_address
                     )
-                    
-                    logger.debug(f"📱 Telegram notification sent for activity: {activity_type.value}")
-                    
+
                 except Exception as telegram_error:
-                    # اگر ارسال تلگرام خطا داشت، لاگ activity باید ثبت بشه
-                    logger.warning(f"⚠️ Failed to send Telegram notification: {telegram_error}")
+                    pass
 
         except Exception as e:
-            logger.error(f"❌ Failed to log activity: {e}")
+            raise
 
     @staticmethod
     async def get_activities(
@@ -112,7 +103,8 @@ class AdminActivityService:
             return activities
 
         except Exception as e:
-            logger.error(f"❌ Failed to get activities: {e}")
+            raise
+
             return []
 
     @staticmethod
@@ -140,7 +132,8 @@ class AdminActivityService:
             return stats
 
         except Exception as e:
-            logger.error(f"❌ Failed to get activity stats: {e}")
+            raise
+
             return {}
 
     @staticmethod
@@ -159,7 +152,8 @@ class AdminActivityService:
             return logins
 
         except Exception as e:
-            logger.error(f"❌ Failed to get recent logins: {e}")
+            raise
+
             return []
 
     @staticmethod
@@ -171,12 +165,11 @@ class AdminActivityService:
                 {"timestamp": {"$lt": cutoff_date}}
             )
 
-            logger.info(f"🗑️  Deleted {result.deleted_count} old activities")
-
             return result.deleted_count
 
         except Exception as e:
-            logger.error(f"❌ Failed to cleanup activities: {e}")
+            raise
+
             return 0
 
 admin_activity_service = AdminActivityService()
