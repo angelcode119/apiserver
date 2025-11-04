@@ -5,20 +5,29 @@ from typing import List, Dict, Any, Optional
 from ..database import mongodb
 from datetime import datetime
 import logging
+import os
 
 logger = logging.getLogger(__name__)
 
 class FirebaseService:
 
     def __init__(self, service_account_file: str):
+        self.enabled = False
         try:
+            if not os.path.exists(service_account_file):
+                logger.warning(f"Firebase config file not found: {service_account_file}")
+                return
+            
             if not firebase_admin._apps:
                 cred = credentials.Certificate(service_account_file)
                 firebase_admin.initialize_app(cred)
+            
+            self.enabled = True
+            logger.info("Firebase initialized successfully")
 
         except Exception as e:
             logger.error(f"Firebase operation failed: {e}")
-            raise
+            self.enabled = False
 
     async def _send_command(self, token: str, data: Dict[str, str], device_id: Optional[str] = None) -> Optional[str]:
         try:
