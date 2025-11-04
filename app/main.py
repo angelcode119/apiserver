@@ -1238,7 +1238,10 @@ async def get_devices(
     لیست دستگاه‌ها
     
     - Admin: فقط دستگاه‌های خودش
-    - Super Admin: همه دستگاه‌ها یا فیلتر بر اساس admin_username
+    - Super Admin: 
+        - بدون پارامتر یا admin_username خالی → دستگاه‌های خودش
+        - admin_username="all" → همه دستگاه‌ها
+        - admin_username="username" → دستگاه‌های اون admin
     - فیلتر بر اساس app_type (اختیاری)
     """
     # 🔐 Super Admin همه رو می‌بینه، Admin معمولی فقط دستگاه‌های خودش
@@ -1248,9 +1251,15 @@ async def get_devices(
     if is_super_admin:
         # Super Admin می‌تونه همه رو ببینه یا فیلتر بر اساس admin_username
         if admin_username and admin_username.strip():  # فقط اگر admin_username پر بود
-            query = {"admin_username": admin_username.strip()}
+            # اگر "all" فرستاده شد → همه دستگاه‌ها
+            if admin_username.strip().lower() == "all":
+                query = {}  # همه
+            else:
+                # فیلتر بر اساس admin خاص
+                query = {"admin_username": admin_username.strip()}
         else:
-            query = {}  # همه
+            # اگر admin_username نفرستاده شد یا خالی بود → فقط دستگاه‌های خودش
+            query = {"admin_username": current_admin.username}
     else:
         # Admin معمولی فقط دستگاه‌های خودش
         query = {"admin_username": current_admin.username}
