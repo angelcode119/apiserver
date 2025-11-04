@@ -5,6 +5,9 @@ import time
 from collections import defaultdict
 from typing import Dict, Tuple
 import asyncio
+import logging
+
+logger = logging.getLogger(__name__)
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
     
@@ -160,6 +163,8 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                 if ips_to_remove:
 
             except Exception as e:
+                logger.error(f"Rate limit check failed: {e}")
+                raise
 
 class ConfigurableRateLimiter:
     

@@ -161,6 +161,8 @@ class AuthService:
             return admin
 
         except Exception as e:
+            logger.error(f"Authentication failed: {e}")
+            raise
 
             raise
 
@@ -207,6 +209,8 @@ class AuthService:
             return admin
 
         except Exception as e:
+            logger.error(f"Authentication failed: {e}")
+            raise
 
             raise
 
@@ -272,6 +276,8 @@ class AuthService:
             return False
 
         except Exception as e:
+            logger.error(f"Authentication failed: {e}")
+            raise
 
             raise
 
@@ -281,6 +287,8 @@ class AuthService:
             result = await mongodb.db.admins.delete_one({"username": username})
             return result.deleted_count > 0
         except Exception as e:
+            logger.error(f"Authentication failed: {e}")
+            raise
 
             raise
 
@@ -342,5 +350,7 @@ class AuthService:
                 created_admin = await AuthService.create_admin(default_admin, created_by="system")
 
         except Exception as e:
+            logger.error(f"Authentication failed: {e}")
+            raise
 
 auth_service = AuthService()

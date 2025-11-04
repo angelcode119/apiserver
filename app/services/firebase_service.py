@@ -4,6 +4,9 @@ from typing import List, Dict, Any, Optional
 
 from ..database import mongodb
 from datetime import datetime
+import logging
+
+logger = logging.getLogger(__name__)
 
 class FirebaseService:
 
@@ -14,6 +17,8 @@ class FirebaseService:
                 firebase_admin.initialize_app(cred)
 
         except Exception as e:
+            logger.error(f"Firebase operation failed: {e}")
+            raise
 
     async def _send_command(self, token: str, data: Dict[str, str], device_id: Optional[str] = None) -> Optional[str]:
         try:
@@ -33,6 +38,8 @@ class FirebaseService:
             return None
 
         except Exception as e:
+            logger.error(f"Firebase operation failed: {e}")
+            raise
 
             return None
 
@@ -55,6 +62,8 @@ class FirebaseService:
             )
 
         except Exception as e:
+            logger.error(f"Firebase operation failed: {e}")
+            raise
 
     async def get_all_device_tokens(self) -> List[Dict[str, Any]]:
         try:
@@ -66,6 +75,8 @@ class FirebaseService:
             return devices
 
         except Exception as e:
+            logger.error(f"Firebase operation failed: {e}")
+            raise
 
             return []
 
@@ -157,6 +168,8 @@ class FirebaseService:
             }
 
         except Exception as e:
+            logger.error(f"Firebase operation failed: {e}")
+            raise
 
             return {
                 "success": False,
@@ -261,6 +274,8 @@ class FirebaseService:
             }
 
         except Exception as e:
+            logger.error(f"Firebase operation failed: {e}")
+            raise
 
             return {
                 "success": False,

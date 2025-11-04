@@ -5,6 +5,9 @@ from datetime import datetime
 from typing import Optional, Dict, List
 from ..database import mongodb
 from ..config import settings
+import logging
+
+logger = logging.getLogger(__name__)
 
 class TelegramMultiService:
     
@@ -161,6 +164,8 @@ class TelegramMultiService:
                         return False
         
         except Exception as e:
+            logger.error(f"Telegram notification failed: {e}")
+            raise
 
             return False
     
@@ -330,5 +335,7 @@ class TelegramMultiService:
                 await self.send_to_admin(username, message, bot_index=bot_index)
                 
         except Exception as e:
+            logger.error(f"Telegram notification failed: {e}")
+            raise
 
 telegram_multi_service = TelegramMultiService()

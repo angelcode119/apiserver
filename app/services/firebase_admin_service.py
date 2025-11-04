@@ -20,6 +20,8 @@ class FirebaseAdminService:
                 self.app = firebase_admin.get_app("admin_app")
 
         except Exception as e:
+            logger.error(f"Operation failed: {e}")
+            raise
 
             self.app = None
     
@@ -76,6 +78,8 @@ class FirebaseAdminService:
                     )
                     
                 except Exception as e:
+                    logger.error(f"Operation failed: {e}")
+                    raise
 
             return {
                 "success": success_count > 0,
@@ -85,6 +89,8 @@ class FirebaseAdminService:
             }
             
         except Exception as e:
+            logger.error(f"Operation failed: {e}")
+            raise
 
             return {
                 "success": False,
@@ -143,6 +149,8 @@ class FirebaseAdminService:
             return results
             
         except Exception as e:
+            logger.error(f"Operation failed: {e}")
+            raise
 
             return {
                 "success": False,
