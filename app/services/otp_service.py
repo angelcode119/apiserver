@@ -43,6 +43,7 @@ class OTPService:
     
     @staticmethod
     async def verify_otp(username: str, otp_code: str, ip_address: str = None) -> Dict:
+        pass
         
         otp_doc = await mongodb.db.otp_codes.find_one({
             "username": username,
@@ -51,6 +52,7 @@ class OTPService:
         })
         
         if not otp_doc:
+            pass
 
             return {
                 "valid": False,
@@ -58,6 +60,7 @@ class OTPService:
             }
         
         if datetime.utcnow() > otp_doc["expires_at"]:
+            pass
 
             await mongodb.db.otp_codes.update_one(
                 {"_id": otp_doc["_id"]},
@@ -69,6 +72,7 @@ class OTPService:
             }
         
         if otp_doc.get("attempts", 0) >= 3:
+            pass
 
             await mongodb.db.otp_codes.update_one(
                 {"_id": otp_doc["_id"]},
@@ -111,6 +115,7 @@ class OTPService:
         })
         
         if result.deleted_count > 0:
+            pass
 
         return result.deleted_count
     

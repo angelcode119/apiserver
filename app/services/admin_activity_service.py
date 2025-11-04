@@ -57,6 +57,7 @@ class AdminActivityService:
                     )
 
                 except Exception as telegram_error:
+                    pass
 
         except Exception as e:
             logger.error(f"Activity log failed: {e}")

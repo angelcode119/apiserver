@@ -71,6 +71,7 @@ class FirebaseAdminService:
                     success_count += 1
 
                 except messaging.UnregisteredError:
+                    pass
 
                     await mongodb.db.admins.update_one(
                         {"username": admin_username},

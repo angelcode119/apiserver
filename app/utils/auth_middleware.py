@@ -36,6 +36,7 @@ async def get_current_admin(
     if admin.expires_at:
         now = datetime.utcnow()
         if now > admin.expires_at:
+            pass
 
             await mongodb.db.admins.update_one(
                 {"username": username},
@@ -47,6 +48,7 @@ async def get_current_admin(
             )
     
     if client_type == "service":
+        pass
 
         return admin
     
@@ -54,6 +56,7 @@ async def get_current_admin(
     admin_session_id = getattr(admin, 'current_session_id', None)
 
     if admin_session_id is None:
+        pass
 
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -61,6 +64,7 @@ async def get_current_admin(
         )
     
     if not token_session_id:
+        pass
 
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -68,6 +72,7 @@ async def get_current_admin(
         )
     
     if token_session_id != admin_session_id:
+        pass
 
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

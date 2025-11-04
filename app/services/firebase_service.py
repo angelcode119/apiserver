@@ -32,6 +32,7 @@ class FirebaseService:
             return response
 
         except messaging.UnregisteredError:
+            pass
 
             if device_id:
                 await self._remove_invalid_token(device_id, token)

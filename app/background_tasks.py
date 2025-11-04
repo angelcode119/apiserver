@@ -214,3 +214,4 @@ async def send_multiple_notifications_bg(
     
     for i, result in enumerate(results):
         if isinstance(result, Exception):
+            pass

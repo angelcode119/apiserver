@@ -117,6 +117,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         is_limited, remaining = self.is_rate_limited(client_ip, endpoint)
         
         if is_limited:
+            pass
 
             return JSONResponse(
                 status_code=429,
@@ -161,6 +162,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                     del self.request_history[ip]
                 
                 if ips_to_remove:
+                    pass
 
             except Exception as e:
                 logger.error(f"Rate limit check failed: {e}")

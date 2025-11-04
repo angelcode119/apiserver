@@ -8,6 +8,7 @@ class BotOTPRequest(BaseModel):
     bot_identifier: str
 
 class BotOTPVerify(BaseModel):
+    pass
     
     username: str
     otp_code: str

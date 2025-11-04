@@ -155,8 +155,10 @@ class AuthService:
             await mongodb.db.admins.insert_one(admin.model_dump())
 
             if admin_create.expires_at:
+                pass
 
             else:
+                pass
 
             return admin
 
@@ -188,7 +190,7 @@ class AuthService:
             if admin.expires_at:
                 now = datetime.utcnow()
                 if now > admin.expires_at:
-
+                    logger.warning(f"Admin {admin.username} account expired")
                     await mongodb.db.admins.update_one(
                         {"username": admin.username},
                         {"$set": {"is_active": False}}
@@ -299,6 +301,7 @@ class AuthService:
     @staticmethod
     async def create_default_admin():
         try:
+            pass
 
             existing = await mongodb.db.admins.find_one({"role": AdminRole.SUPER_ADMIN})
 

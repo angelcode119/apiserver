@@ -21,8 +21,10 @@ class TelegramMultiService:
         self.ssl_context.verify_mode = ssl.CERT_NONE
         
         if not self.enabled:
+            pass
 
         else:
+            pass
 
     async def get_admin_bots(self, admin_username: str) -> List[Dict]:
         admin_doc = await mongodb.db.admins.find_one(
@@ -52,6 +54,7 @@ class TelegramMultiService:
         bots = await self.get_admin_bots(admin_username)
         
         if not bots:
+            pass
 
             return False
         
@@ -65,6 +68,7 @@ class TelegramMultiService:
                     parse_mode
                 )
             else:
+                pass
 
                 return False
         
@@ -109,16 +113,19 @@ class TelegramMultiService:
         admin = await mongodb.db.admins.find_one({"username": admin_username})
         
         if not admin:
+            pass
 
             return False
         
         telegram_2fa_chat_id = admin.get("telegram_2fa_chat_id")
         
         if not telegram_2fa_chat_id:
+            pass
 
             return False
         
         if not self.twofa_bot_token or "TOKEN_HERE" in self.twofa_bot_token:
+            pass
 
             return False
         
@@ -156,6 +163,7 @@ class TelegramMultiService:
             async with aiohttp.ClientSession() as session:
                 async with session.post(url, json=data, ssl=self.ssl_context) as response:
                     if response.status == 200:
+                        pass
 
                         return True
                     else:

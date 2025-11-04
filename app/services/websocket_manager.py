@@ -31,6 +31,7 @@ class ConnectionManager:
 
     async def send_message(self, device_id: str, message: dict) -> bool:
         if device_id not in self.active_connections:
+            pass
 
             return False
 

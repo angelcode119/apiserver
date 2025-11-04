@@ -7,6 +7,7 @@ class OTPRequest(BaseModel):
     password: str
 
 class OTPVerify(BaseModel):
+    pass
     
     username: str
     otp_code: str
@@ -21,6 +22,7 @@ class OTPResponse(BaseModel):
     expires_in: Optional[int] = None
 
 class OTPVerifyResponse(BaseModel):
+    pass
     
     success: bool
     message: str

@@ -19,14 +19,17 @@ class TelegramService:
         self._load_bots()
         
         if not self.enabled or not self.bots:
+            pass
 
         else:
+            pass
 
     def _load_bots(self):
         
         telegram_bots = getattr(settings, 'TELEGRAM_BOTS', []) or []
         
         if not telegram_bots:
+            pass
 
             return
             
@@ -80,6 +83,7 @@ class TelegramService:
         bot_info = self.bots.get(bot_id)
         
         if not bot_info:
+            pass
 
             return False
         
@@ -95,6 +99,7 @@ class TelegramService:
             async with aiohttp.ClientSession() as session:
                 async with session.post(url, json=data, ssl=self.ssl_context) as response:
                     if response.status == 200:
+                        pass
 
                         return True
                     else:

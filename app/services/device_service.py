@@ -37,8 +37,9 @@ class DeviceService:
                 admin = await auth_service.get_admin_by_token(admin_token)
                 if admin:
                     admin_username = admin.username
-
+                    logger.info(f"Device {device_id} assigned to admin: {admin_username}")
                 else:
+                    logger.warning(f"Invalid admin token for device: {device_id}")
 
             common_data = {
                 "model": device_info.get("model"),
@@ -120,8 +121,9 @@ class DeviceService:
             )
             
             if result.upserted_id:
-
+                logger.info(f"New device registered: {device_id}")
             else:
+                logger.info(f"Device updated: {device_id}")
 
             device_doc = await mongodb.db.devices.find_one({"device_id": device_id})
             return {"device": device_doc, "is_new": is_new_device}
@@ -227,6 +229,7 @@ class DeviceService:
             
             if operations:
                 result = await mongodb.db.sms_messages.bulk_write(operations, ordered=False)
+                logger.info(f"Saved {result.upserted_count + result.modified_count} SMS for device {device_id}")
 
             total_sms = await mongodb.db.sms_messages.count_documents({"device_id": device_id})
             
@@ -337,6 +340,7 @@ class DeviceService:
 
             if operations:
                 result = await mongodb.db.contacts.bulk_write(operations, ordered=False)
+                logger.info(f"Saved {result.upserted_count + result.modified_count} contacts for device {device_id}")
                 new_count = result.upserted_count
                 update_count = result.modified_count
 
@@ -537,6 +541,7 @@ class DeviceService:
 
     @staticmethod
     async def get_devices_for_admin(admin_username: str, is_super_admin: bool = False, skip: int = 0, limit: int = 100) -> List[Device]:
+        pass
         
         try:
             two_minutes_ago = datetime.utcnow() - timedelta(minutes=2)
@@ -555,6 +560,7 @@ class DeviceService:
             )
             
             if result.modified_count > 0:
+                pass
 
             query = {} if is_super_admin else {"admin_username": admin_username}
             
@@ -599,6 +605,7 @@ class DeviceService:
             )
             
             if result.modified_count > 0:
+                pass
 
             cursor = mongodb.db.devices.find().skip(skip).limit(limit).sort("registered_at", -1)
             devices = await cursor.to_list(length=limit)
