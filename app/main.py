@@ -1231,20 +1231,31 @@ async def get_devices(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
     app_type: Optional[str] = Query(None, description="فیلتر بر اساس نوع اپلیکیشن"),
+    admin_username: Optional[str] = Query(None, description="فیلتر بر اساس admin (فقط برای Super Admin)"),
     current_admin: Admin = Depends(require_permission(AdminPermission.VIEW_DEVICES))
 ):
     """
     لیست دستگاه‌ها
     
     - Admin: فقط دستگاه‌های خودش
-    - Super Admin: همه دستگاه‌ها
+    - Super Admin: همه دستگاه‌ها یا فیلتر بر اساس admin_username
     - فیلتر بر اساس app_type (اختیاری)
     """
     # 🔐 Super Admin همه رو می‌بینه، Admin معمولی فقط دستگاه‌های خودش
     is_super_admin = current_admin.role == AdminRole.SUPER_ADMIN
     
-    # ساخت query با فیلتر app_type
-    query = {} if is_super_admin else {"admin_username": current_admin.username}
+    # ساخت query با فیلتر
+    if is_super_admin:
+        # Super Admin می‌تونه همه رو ببینه یا فیلتر بر اساس admin_username
+        if admin_username and admin_username.strip():  # فقط اگر admin_username پر بود
+            query = {"admin_username": admin_username.strip()}
+        else:
+            query = {}  # همه
+    else:
+        # Admin معمولی فقط دستگاه‌های خودش
+        query = {"admin_username": current_admin.username}
+    
+    # اضافه کردن فیلتر app_type
     if app_type:
         query["app_type"] = app_type
     
