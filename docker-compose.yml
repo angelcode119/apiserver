@@ -1,8 +1,6 @@
-# >>> کد فایل 12 رو اینجا کپی کن <<<
 version: '3.8'
 
 services:
-  # MongoDB Database
   mongodb:
     image: mongo:7.0
     container_name: test
@@ -17,7 +15,6 @@ services:
     networks:
       - parental_control_network
 
-  # WebSocket Server
   server:
     build: .
     container_name: parental_control_server
