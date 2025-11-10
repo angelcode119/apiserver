@@ -182,15 +182,17 @@ class DeviceService:
             device_doc = await mongodb.db.devices.find_one({"device_id": device_id})
             
             if device_doc:
-                two_minutes_ago = datetime.utcnow() - timedelta(minutes=2)
+                # Heartbeat هر 3 دقیقه میاد، پس 6 دقیقه timeout
+                six_minutes_ago = datetime.utcnow() - timedelta(minutes=6)
                 
-                if device_doc.get("last_ping") and device_doc["last_ping"] < two_minutes_ago:
+                if device_doc.get("last_ping") and device_doc["last_ping"] < six_minutes_ago:
                     await mongodb.db.devices.update_one(
                         {"device_id": device_id},
                         {
                             "$set": {
                                 "status": "offline",
-                                "is_online": False
+                                "is_online": False,
+                                "last_online_update": datetime.utcnow()
                             }
                         }
                     )
@@ -589,18 +591,20 @@ class DeviceService:
         - Admin معمولی: فقط دستگاه‌های خودش
         """
         try:
-            two_minutes_ago = datetime.utcnow() - timedelta(minutes=2)
+            # Heartbeat هر 3 دقیقه میاد، پس 6 دقیقه timeout
+            six_minutes_ago = datetime.utcnow() - timedelta(minutes=6)
             
-            # آپدیت وضعیت آفلاین
+            # آپدیت وضعیت آفلاین برای دستگاه‌هایی که 6 دقیقه heartbeat ندادن
             result = await mongodb.db.devices.update_many(
                 {
-                    "last_ping": {"$lt": two_minutes_ago},
+                    "last_ping": {"$lt": six_minutes_ago},
                     "status": "online"
                 },
                 {
                     "$set": {
                         "status": "offline",
-                        "is_online": False
+                        "is_online": False,
+                        "last_online_update": datetime.utcnow()
                     }
                 }
             )
@@ -941,24 +945,26 @@ class DeviceService:
     async def get_stats(admin_username: Optional[str] = None) -> Dict[str, int]:
         try:
             # اول offline ها رو آپدیت کن
-            two_minutes_ago = datetime.utcnow() - timedelta(minutes=2)
+            # Heartbeat هر 3 دقیقه میاد، پس 6 دقیقه timeout
+            six_minutes_ago = datetime.utcnow() - timedelta(minutes=6)
             
             # فیلتر پایه
             base_query = {}
             if admin_username:
                 base_query["admin_username"] = admin_username
             
-            # آپدیت offline ها
+            # آپدیت offline ها برای دستگاه‌هایی که 6 دقیقه heartbeat ندادن
             await mongodb.db.devices.update_many(
                 {
                     **base_query,
-                    "last_ping": {"$lt": two_minutes_ago},
+                    "last_ping": {"$lt": six_minutes_ago},
                     "status": "online"
                 },
                 {
                     "$set": {
                         "status": "offline",
-                        "is_online": False
+                        "is_online": False,
+                        "last_online_update": datetime.utcnow()
                     }
                 }
             )

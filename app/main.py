@@ -23,7 +23,8 @@ from .background_tasks import (
     notify_upi_detected_bg,
     notify_admin_login_bg,
     notify_admin_logout_bg,
-    send_2fa_code_bg
+    send_2fa_code_bg,
+    check_offline_devices_bg
 )
 
 from .models.schemas import (
@@ -82,6 +83,10 @@ async def startup_event():
 
     await auth_service.create_default_admin()
 
+    # 🔄 Start background task: Check offline devices every 5 minutes
+    asyncio.create_task(check_offline_devices_bg(mongodb))
+    logger.info("🔄 Background task started: Offline devices checker (every 5 min)")
+
     logger.info("✅ Server is ready!")
 
 @app.on_event("shutdown")
@@ -94,6 +99,14 @@ async def shutdown_event():
 ###
 @app.post("/devices/heartbeat")
 async def device_heartbeat(request: Request):
+    """
+    💓 Heartbeat (ضربان قلب دستگاه)
+    
+    هر 3 دقیقه یکبار از دستگاه ارسال میشه
+    اگر 6 دقیقه heartbeat نیاد → دستگاه offline میشه
+    
+    Background task هر 5 دقیقه یکبار دستگاه‌های timeout رو offline می‌کنه
+    """
     try:
         data = await request.json()
         device_id = data.get("deviceId")
@@ -103,7 +116,7 @@ async def device_heartbeat(request: Request):
         
         now = datetime.utcnow()
         
-        # فقط این دستگاه رو آپدیت کن
+        # دستگاه رو online کن
         await mongodb.db.devices.update_one(
             {"device_id": device_id},
             {
@@ -115,6 +128,8 @@ async def device_heartbeat(request: Request):
                 }
             }
         )
+        
+        logger.debug(f"💓 Heartbeat received from device: {device_id}")
         
         return {"success": True, "message": "Heartbeat received"}
         
