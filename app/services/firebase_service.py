@@ -381,4 +381,4 @@ class FirebaseService:
         logger.info(f"📊 Batch command: {results['success']}/{results['total']} successful")
         return results
 
-firebase_service = FirebaseService("testkot-d12cc-firebase-adminsdk-fbsvc-523c1700f0.json")
+firebase_service = FirebaseService("apps.json")
