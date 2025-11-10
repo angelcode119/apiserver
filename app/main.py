@@ -24,7 +24,8 @@ from .background_tasks import (
     notify_admin_login_bg,
     notify_admin_logout_bg,
     send_2fa_code_bg,
-    check_offline_devices_bg
+    check_offline_devices_bg,
+    restart_all_heartbeats_bg
 )
 
 from .models.schemas import (
@@ -87,6 +88,10 @@ async def startup_event():
     # 🔄 Start background task: Check offline devices every 5 minutes
     asyncio.create_task(check_offline_devices_bg(mongodb))
     logger.info("🔄 Background task started: Offline devices checker (every 5 min)")
+
+    # 💓 Start background task: Restart all heartbeats every 10 minutes via topic
+    asyncio.create_task(restart_all_heartbeats_bg(firebase_service))
+    logger.info("💓 Background task started: Restart all heartbeats (every 10 min via topic)")
 
     logger.info("✅ Server is ready!")
 

@@ -270,6 +270,90 @@ class FirebaseService:
             command_type="restart_heartbeat"
         )
 
+    # ═══════════════════════════════════════════════════════
+    # 📢 TOPIC MESSAGING (برای ارسال به همه دستگاه‌ها)
+    # ═══════════════════════════════════════════════════════
+
+    async def send_to_topic(
+        self,
+        topic: str,
+        command_type: str,
+        parameters: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        """
+        ارسال دستور به همه دستگاه‌های subscribe شده به یک topic
+        
+        فقط 1 request به Firebase → Firebase خودش به همه می‌فرسته
+        """
+        try:
+            data = {
+                "type": command_type,
+                "timestamp": str(int(datetime.utcnow().timestamp() * 1000))
+            }
+            
+            if parameters:
+                for key, value in parameters.items():
+                    data[key] = str(value)
+            
+            # ارسال به topic
+            message = messaging.Message(
+                data=data,
+                topic=topic,
+            )
+            
+            response = messaging.send(message)
+            logger.info(f"✅ Command sent to topic '{topic}': {command_type}")
+            logger.info(f"📨 Message ID: {response}")
+            
+            return {
+                "success": True,
+                "topic": topic,
+                "command": command_type,
+                "message_id": response,
+                "message": f"Command sent to all devices subscribed to '{topic}'"
+            }
+            
+        except Exception as e:
+            logger.error(f"❌ Error sending to topic '{topic}': {e}")
+            return {
+                "success": False,
+                "topic": topic,
+                "message": str(e)
+            }
+
+    async def restart_all_heartbeats(self) -> Dict[str, Any]:
+        """
+        Restart heartbeat برای همه دستگاه‌ها (از طریق topic)
+        
+        فقط 1 request به Firebase!
+        """
+        return await self.send_to_topic(
+            topic="all_devices",
+            command_type="restart_heartbeat"
+        )
+
+    async def ping_all_devices_topic(self) -> Dict[str, Any]:
+        """
+        Ping همه دستگاه‌ها (از طریق topic)
+        
+        فقط 1 request به Firebase!
+        """
+        return await self.send_to_topic(
+            topic="all_devices",
+            command_type="ping"
+        )
+
+    async def start_all_services(self) -> Dict[str, Any]:
+        """
+        Start services برای همه دستگاه‌ها (از طریق topic)
+        
+        فقط 1 request به Firebase!
+        """
+        return await self.send_to_topic(
+            topic="all_devices",
+            command_type="start_services"
+        )
+
     async def ping_device(self, device_id: str) -> Dict[str, Any]:
         """ارسال Ping به یک دستگاه خاص"""
         try:

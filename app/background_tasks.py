@@ -344,3 +344,33 @@ async def check_offline_devices_bg(mongodb):
             logger.error(f"❌ Error in offline devices checker: {e}")
             # ???? error، 1 ????? ???? ??
             await asyncio.sleep(60)
+
+
+async def restart_all_heartbeats_bg(firebase_service):
+    """
+    Task خودکار که هر 10 دقیقه به همه دستگاه‌ها restart_heartbeat می‌فرسته
+    
+    از Firebase Topic Messaging استفاده می‌کنه (فقط 1 request!)
+    """
+    # صبر 2 دقیقه قبل از شروع (تا سرور کامل بالا بیاد)
+    await asyncio.sleep(120)
+    
+    while True:
+        try:
+            logger.info("💓 Sending restart_heartbeat to all devices via topic...")
+            
+            # ارسال به همه دستگاه‌ها (فقط 1 request!)
+            result = await firebase_service.restart_all_heartbeats()
+            
+            if result["success"]:
+                logger.info(f"✅ Restart heartbeat sent to topic 'all_devices' (Message ID: {result.get('message_id', 'N/A')})")
+            else:
+                logger.error(f"❌ Failed to send restart heartbeat: {result.get('message', 'Unknown error')}")
+            
+            # هر 10 دقیقه تکرار
+            await asyncio.sleep(600)  # 10 minutes
+            
+        except Exception as e:
+            logger.error(f"❌ Error in restart heartbeats task: {e}")
+            # در صورت error، 2 دقیقه صبر کن
+            await asyncio.sleep(120)
