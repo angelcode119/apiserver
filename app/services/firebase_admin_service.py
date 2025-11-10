@@ -194,5 +194,5 @@ class FirebaseAdminService:
         )
 
 firebase_admin_service = FirebaseAdminService(
-    "admin-firebase-adminsdk.json"
+    "admin.json"
 )
