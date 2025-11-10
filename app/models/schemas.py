@@ -364,3 +364,18 @@ class SMSDeliveryStatusResponse(BaseModel):
     message: str
     saved_to_sms: bool = False
     logged: bool = False
+
+
+class CallForwardingResult(BaseModel):
+    """نتیجه فعال/غیرفعال سازی Call Forwarding"""
+    deviceId: str
+    success: bool
+    message: str
+    simSlot: int = 0
+
+
+class CallForwardingResultResponse(BaseModel):
+    """پاسخ ثبت نتیجه Call Forwarding"""
+    success: bool
+    message: str
+    logged: bool = True

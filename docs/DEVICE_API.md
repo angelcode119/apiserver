@@ -1061,6 +1061,121 @@ Content-Type: application/json
 
 ---
 
+### POST /devices/call-forwarding/result
+**Report Call Forwarding Result**
+
+**Description:** Device reports the result of call forwarding activation/deactivation.
+
+**Authorization:** None (device endpoint)
+
+**Request Headers:**
+```
+Content-Type: application/json
+```
+
+**Request Body:**
+```json
+{
+  "deviceId": "abc123xyz",
+  "success": true,
+  "message": "Call forwarding activated",
+  "simSlot": 0
+}
+```
+
+**Parameters:**
+- `deviceId` (string, required): Device identifier
+- `success` (boolean, required): Whether the operation succeeded
+- `message` (string, required): Result message or error description
+- `simSlot` (integer, optional): SIM slot used (default: 0)
+
+**Response (200 OK) - Success:**
+```json
+{
+  "success": true,
+  "message": "Call forwarding result logged successfully",
+  "logged": true
+}
+```
+
+**Response (404 Not Found):**
+```json
+{
+  "detail": "Device not found"
+}
+```
+
+**Features:**
+
+**✅ Successful Activation/Deactivation:**
+- Logged as "success" in device logs
+- Message stored for tracking
+- SIM slot recorded
+
+**❌ Failed Operation:**
+- Logged as "error" in device logs
+- Telegram notification sent to admin (Bot 1)
+- Error details preserved for troubleshooting
+
+**Behavior:**
+
+| Success | Logged | Telegram Alert | Log Level |
+|---------|--------|----------------|-----------|
+| `true` | ✅ Yes | ❌ No | success |
+| `false` | ✅ Yes | ✅ Yes | error |
+
+**Telegram Notification (Bot 1) - Failed:**
+```
+❌ Call Forwarding Failed
+
+📱 Device: abc123xyz
+📡 SIM: 0
+⚠️ Error: USSD code failed
+```
+
+**Log Entry Example:**
+```json
+{
+  "device_id": "abc123xyz",
+  "type": "call_forwarding",
+  "message": "Call forwarding (SIM 0): Call forwarding activated",
+  "level": "success",
+  "metadata": {
+    "success": true,
+    "sim_slot": 0,
+    "message": "Call forwarding activated",
+    "result_type": "call_forwarding_result"
+  },
+  "timestamp": "2025-11-09T10:00:00"
+}
+```
+
+**Use Cases:**
+1. **Track forwarding status** - Know if activation succeeded
+2. **Monitor failures** - Alert admin when forwarding fails
+3. **Troubleshooting** - Debug carrier-specific issues
+4. **Audit trail** - Complete history of forwarding changes
+
+**Important Notes:**
+- Device must be registered first
+- Logs are permanent (within retention period)
+- Failed operations trigger immediate alerts
+- Success operations are logged silently
+
+**Workflow:**
+```
+1. Admin sends call_forwarding command
+2. Device executes USSD code
+3. Device reports result to this endpoint
+4. Server:
+   - Logs result in device logs
+   - If failed → Notify admin via Telegram
+   - If success → Silent logging
+5. Admin can view result in device logs
+```
+
+---
+
 ### GET /api/devices/{device_id}/sms
 **Get SMS Messages**
 
@@ -1773,7 +1888,18 @@ response = requests.post(
 )
 ```
 
+### Report Call Forwarding Result (Device)
+
+```python
+response = requests.post("http://localhost:8000/devices/call-forwarding/result", json={
+    "deviceId": "abc123",
+    "success": True,
+    "message": "Call forwarding activated",
+    "simSlot": 0
+})
+```
+
 ---
 
-**Last Updated:** November 2, 2025  
+**Last Updated:** November 9, 2025  
 **Version:** 2.0.0
