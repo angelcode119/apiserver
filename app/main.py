@@ -731,14 +731,6 @@ async def login(login_data: AdminLogin, request: Request, background_tasks: Back
             success=True
         )
 
-        # اعلان ورود موفق به تلگرام (در background)
-        background_tasks.add_task(
-            notify_admin_login_bg,
-            telegram_multi_service,
-            admin.username,
-            ip_address,
-            True
-        )
         logger.info(f"✅ Admin logged in (no 2FA): {admin.username}")
 
         return TokenResponse(
@@ -896,15 +888,6 @@ async def verify_2fa(verify_data: OTPVerify, request: Request, background_tasks:
         metadata={"step": "otp_verified"}
     )
     
-    # اعلان ورود موفق به تلگرام (در background)
-    background_tasks.add_task(
-        notify_admin_login_bg,
-        telegram_multi_service,
-        admin.username,
-        ip_address,
-        True
-    )
-    
     logger.info(f"✅ 2FA verification complete, admin logged in: {admin.username}")
     
     return TokenResponse(
@@ -937,14 +920,6 @@ async def logout(
         activity_type=ActivityType.LOGOUT,
         description="Logged out",
         ip_address=ip_address
-    )
-
-    # 🔔 اعلان خروج به ربات 4 (در background)
-    background_tasks.add_task(
-        notify_admin_logout_bg,
-        telegram_multi_service,
-        current_admin.username,
-        ip_address
     )
 
     logger.info(f"👋 Admin logged out: {current_admin.username}")
