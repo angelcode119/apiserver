@@ -22,3 +22,7 @@ venv/
 # Firebase Service Account Keys
 *-firebase-adminsdk*.json
 admin-firebase-adminsdk.json
+admin.json
+apps.json
+admin.json
+apps.json
