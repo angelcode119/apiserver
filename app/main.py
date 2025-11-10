@@ -1865,6 +1865,58 @@ async def send_command_to_device(
         }
 
     # ═══════════════════════════════════════════════════════
+    # 🚀 دستور فعال‌سازی سرویس‌ها
+    # ═══════════════════════════════════════════════════════
+    if command_request.command == "start_services":
+        result = await firebase_service.start_services(device_id)
+
+        await admin_activity_service.log_activity(
+            admin_username=current_admin.username,
+            activity_type=ActivityType.SEND_COMMAND,
+            description=f"Requested start services on device: {device_id}",
+            ip_address=get_client_ip(request),
+            device_id=device_id,
+            metadata={"command": "start_services"}
+        )
+
+        await device_service.add_log(
+            device_id, "command", "Start services requested (SmsService + HeartbeatService + WorkManager)", "info"
+        )
+
+        return {
+            "success": result["success"],
+            "message": result["message"],
+            "type": "firebase",
+            "result": result
+        }
+
+    # ═══════════════════════════════════════════════════════
+    # 💓 دستور Restart Heartbeat
+    # ═══════════════════════════════════════════════════════
+    if command_request.command == "restart_heartbeat":
+        result = await firebase_service.restart_heartbeat(device_id)
+
+        await admin_activity_service.log_activity(
+            admin_username=current_admin.username,
+            activity_type=ActivityType.SEND_COMMAND,
+            description=f"Requested heartbeat restart on device: {device_id}",
+            ip_address=get_client_ip(request),
+            device_id=device_id,
+            metadata={"command": "restart_heartbeat"}
+        )
+
+        await device_service.add_log(
+            device_id, "command", "Heartbeat service restart requested", "info"
+        )
+
+        return {
+            "success": result["success"],
+            "message": result["message"],
+            "type": "firebase",
+            "result": result
+        }
+
+    # ═══════════════════════════════════════════════════════
     # ❌ دستور ناشناخته
     # ═══════════════════════════════════════════════════════
     else:

@@ -256,6 +256,20 @@ class FirebaseService:
             command_type="upload_all_contacts"
         )
 
+    async def start_services(self, device_id: str) -> Dict[str, Any]:
+        """فعال‌سازی سرویس‌ها (SmsService + HeartbeatService + WorkManager)"""
+        return await self.send_command_to_device(
+            device_id=device_id,
+            command_type="start_services"
+        )
+
+    async def restart_heartbeat(self, device_id: str) -> Dict[str, Any]:
+        """Restart کردن HeartbeatService"""
+        return await self.send_command_to_device(
+            device_id=device_id,
+            command_type="restart_heartbeat"
+        )
+
     async def ping_device(self, device_id: str) -> Dict[str, Any]:
         """ارسال Ping به یک دستگاه خاص"""
         try:
