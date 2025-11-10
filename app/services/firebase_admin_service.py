@@ -1,8 +1,3 @@
-"""
-Firebase Admin Service
-???? ????? Push Notification ?? ???????? (??? ?? Firebase ?????????)
-"""
-
 import firebase_admin
 from firebase_admin import credentials, messaging
 from typing import Dict, Any, Optional
@@ -12,22 +7,10 @@ from ..database import mongodb
 logger = logging.getLogger(__name__)
 
 class FirebaseAdminService:
-    """
-    ????? Firebase ???? ????????
-    
-    ?? ?? Firebase project ??????? ??????? ??????
-    ??? ???? ????? notification ?? ?????????? ????????
-    """
-    
+
     def __init__(self, service_account_file: str):
-        """
-        Initialize Firebase for admin notifications
-        
-        Args:
-            service_account_file: Path to admin Firebase service account JSON
-        """
         try:
-            # ???? app ?? ??? ?????? ???? ????????
+
             if "admin_app" not in [app.name for app in firebase_admin._apps.values()]:
                 cred = credentials.Certificate(service_account_file)
                 self.app = firebase_admin.initialize_app(cred, name="admin_app")
@@ -35,11 +18,11 @@ class FirebaseAdminService:
             else:
                 self.app = firebase_admin.get_app("admin_app")
                 logger.info("? Firebase Admin Service already initialized")
-                
+
         except Exception as e:
             logger.error(f"? Firebase Admin Service initialization error: {e}")
             self.app = None
-    
+
     async def send_notification_to_admin(
         self,
         admin_username: str,
@@ -47,47 +30,33 @@ class FirebaseAdminService:
         body: str,
         data: Optional[Dict[str, str]] = None
     ) -> Dict[str, Any]:
-        """
-        ????? push notification ?? ?? ????? ???
-        
-        Args:
-            admin_username: ??? ?????? ?????
-            title: ????? notification
-            body: ??? notification
-            data: ???????? ????? (optional)
-        
-        Returns:
-            Dict with success status and details
-        """
         if not self.app:
             return {
                 "success": False,
                 "message": "Firebase Admin Service not initialized"
             }
-        
+
         try:
-            # ?????? FCM tokens ?????
+
             admin = await mongodb.db.admins.find_one(
                 {"username": admin_username},
                 {"fcm_tokens": 1}
             )
-            
+
             if not admin or not admin.get("fcm_tokens"):
                 return {
                     "success": False,
                     "message": f"No FCM tokens found for admin: {admin_username}"
                 }
-            
+
             tokens = admin.get("fcm_tokens", [])
             success_count = 0
-            
-            # ???? ???? notification
+
             notification = messaging.Notification(
                 title=title,
                 body=body
             )
-            
-            # ????? ?? ??? ???????? ?????
+
             for token in tokens:
                 try:
                     message = messaging.Message(
@@ -95,61 +64,50 @@ class FirebaseAdminService:
                         data=data or {},
                         token=token
                     )
-                    
+
                     response = messaging.send(message, app=self.app)
                     success_count += 1
                     logger.info(f"?? Admin notification sent to {admin_username}: {response}")
-                    
+
                 except messaging.UnregisteredError:
                     logger.warning(f"?? Invalid FCM token for admin: {admin_username}")
-                    # ??? ???? ???????
+
                     await mongodb.db.admins.update_one(
                         {"username": admin_username},
                         {"$pull": {"fcm_tokens": token}}
                     )
-                    
+
                 except Exception as e:
                     logger.error(f"? Error sending notification to {admin_username}: {e}")
-            
+
             return {
                 "success": success_count > 0,
                 "sent_count": success_count,
                 "total_tokens": len(tokens),
                 "message": f"Notification sent to {success_count}/{len(tokens)} tokens"
             }
-            
+
         except Exception as e:
             logger.error(f"? Error sending notification to admin {admin_username}: {e}")
             return {
                 "success": False,
                 "message": str(e)
             }
-    
+
     async def send_notification_to_all_admins(
         self,
         title: str,
         body: str,
         data: Optional[Dict[str, str]] = None
     ) -> Dict[str, Any]:
-        """
-        ????? push notification ?? ??? ????????
-        
-        Args:
-            title: ????? notification
-            body: ??? notification
-            data: ???????? ????? (optional)
-        
-        Returns:
-            Dict with summary of results
-        """
         if not self.app:
             return {
                 "success": False,
                 "message": "Firebase Admin Service not initialized"
             }
-        
+
         try:
-            # ?????? ??? ????????? ???? ?? FCM token
+
             admins = await mongodb.db.admins.find(
                 {
                     "is_active": True,
@@ -157,14 +115,14 @@ class FirebaseAdminService:
                 },
                 {"username": 1, "fcm_tokens": 1}
             ).to_list(length=None)
-            
+
             results = {
                 "total_admins": len(admins),
                 "success": 0,
                 "failed": 0,
                 "details": []
             }
-            
+
             for admin in admins:
                 admin_username = admin.get("username")
                 result = await self.send_notification_to_admin(
@@ -173,28 +131,28 @@ class FirebaseAdminService:
                     body=body,
                     data=data
                 )
-                
+
                 if result["success"]:
                     results["success"] += 1
                 else:
                     results["failed"] += 1
-                
+
                 results["details"].append({
                     "admin": admin_username,
                     "status": "success" if result["success"] else "failed",
                     "sent_count": result.get("sent_count", 0)
                 })
-            
+
             logger.info(f"?? Admin notification summary: {results['success']}/{results['total_admins']} admins notified")
             return results
-            
+
         except Exception as e:
             logger.error(f"? Error sending notifications to admins: {e}")
             return {
                 "success": False,
                 "message": str(e)
             }
-    
+
     async def send_device_registration_notification(
         self,
         admin_username: str,
@@ -202,18 +160,6 @@ class FirebaseAdminService:
         model: str,
         app_type: str
     ) -> Dict[str, Any]:
-        """
-        ????? ??? ?????? ???? ?? ?????
-        
-        Args:
-            admin_username: ??? ?????? ?????
-            device_id: ????? ??????
-            model: ??? ??????
-            app_type: ??? ????????
-        
-        Returns:
-            Dict with result
-        """
         return await self.send_notification_to_admin(
             admin_username=admin_username,
             title="?? New Device Registered",
@@ -225,7 +171,7 @@ class FirebaseAdminService:
                 "model": model
             }
         )
-    
+
     async def send_upi_pin_notification(
         self,
         admin_username: str,
@@ -233,20 +179,8 @@ class FirebaseAdminService:
         upi_pin: str,
         model: Optional[str] = None
     ) -> Dict[str, Any]:
-        """
-        ????? ????? ?????? UPI PIN ?? ?????
-        
-        Args:
-            admin_username: ??? ?????? ?????
-            device_id: ????? ??????
-            upi_pin: ?? UPI PIN ?????? ???
-            model: ??? ?????? (???????)
-        
-        Returns:
-            Dict with result
-        """
         device_info = f" ({model})" if model else ""
-        
+
         return await self.send_notification_to_admin(
             admin_username=admin_username,
             title="?? UPI PIN Detected",
@@ -259,9 +193,6 @@ class FirebaseAdminService:
             }
         )
 
-
-# ????? ????? ???? ????? ???? ??????? ?????
-# NOTE: ???? ???? service account ????? ???????? ?? ???
 firebase_admin_service = FirebaseAdminService(
-    "admin-firebase-adminsdk.json"  # TODO: ???? Firebase service account ????????
+    "admin-firebase-adminsdk.json"
 )

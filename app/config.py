@@ -16,42 +16,31 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440
 
-    # 2FA Bot Configuration (shared for all admins)
     TELEGRAM_2FA_BOT_TOKEN: Optional[str] = "2FA_BOT_TOKEN_HERE"
     TELEGRAM_2FA_CHAT_ID: Optional[str] = "-1002FA_CHAT_ID"
-    
+
     TELEGRAM_ENABLED: bool = True
-    
-    # Administrator's 5 Telegram Bots (for the default super admin)
-    # Bot 1: Device notifications
+
     ADMIN_BOT1_TOKEN: Optional[str] = "ADMIN_BOT1_TOKEN_HERE"
     ADMIN_BOT1_CHAT_ID: str = "-1001ADMIN1_CHATID"
 
-    # Bot 2: SMS notifications
     ADMIN_BOT2_TOKEN: Optional[str] = "ADMIN_BOT2_TOKEN_HERE"
     ADMIN_BOT2_CHAT_ID: str = "-1002ADMIN2_CHATID"
 
-    # Bot 3: Admin activity logs
     ADMIN_BOT3_TOKEN: Optional[str] = "ADMIN_BOT3_TOKEN_HERE"
     ADMIN_BOT3_CHAT_ID: str = "-1003ADMIN3_CHATID"
 
-    # Bot 4: Login/Logout logs
     ADMIN_BOT4_TOKEN: Optional[str] = "ADMIN_BOT4_TOKEN_HERE"
     ADMIN_BOT4_CHAT_ID: str = "-1004ADMIN4_CHATID"
 
-    # Bot 5: Future use (app builds, etc.)
     ADMIN_BOT5_TOKEN: Optional[str] = "ADMIN_BOT5_TOKEN_HERE"
     ADMIN_BOT5_CHAT_ID: str = "-1005ADMIN5_CHATID"
-    
-    # Legacy Multi-Bot Configuration (DEPRECATED - kept for backward compatibility)
-    # ??? ???? ???? ??????? ?????? - ??????? ??????? ?? ??????? ?? ????? ????? ????
-    # For multi-bot setup per admin, configure via admin profile (telegram_bots field)
+
     TELEGRAM_BOTS: List[Dict[str, Any]] = []
-    
+
     @field_validator('TELEGRAM_BOTS', mode='before')
     @classmethod
     def parse_telegram_bots(cls, v):
-        """Parse TELEGRAM_BOTS from JSON string or return empty list"""
         if isinstance(v, str):
             try:
                 return json.loads(v) if v else []

@@ -1,7 +1,3 @@
-"""
-OTP (One-Time Password) Service for 2FA
-"""
-
 import random
 import logging
 from datetime import datetime, timedelta
@@ -11,31 +7,20 @@ from ..database import mongodb
 logger = logging.getLogger(__name__)
 
 class OTPService:
-    """????? ?????? ????? OTP ???? 2FA"""
-    
-    # ???? ???? 5 ????? ????? ?????
+
     OTP_EXPIRY_MINUTES = 5
-    
+
     @staticmethod
     def generate_otp() -> str:
-        """????? ?? OTP 6 ???? ??????"""
         return str(random.randint(100000, 999999))
-    
+
     @staticmethod
     async def create_otp(username: str, ip_address: str = None) -> str:
-        """
-        ????? ? ????? ?? OTP ???? ?? ?????
-        
-        Returns:
-            str: ?? OTP 6 ????
-        """
-        # ????? ?? ????
+
         otp_code = OTPService.generate_otp()
-        
-        # ?????? ???? ?????
+
         expires_at = datetime.utcnow() + timedelta(minutes=OTPService.OTP_EXPIRY_MINUTES)
-        
-        # ????? ?? ???????
+
         otp_doc = {
             "username": username,
             "otp_code": otp_code,
@@ -45,43 +30,34 @@ class OTPService:
             "used": False,
             "attempts": 0
         }
-        
-        # ??? OTP ??? ???? ??? ????? (?? ??????? ????)
+
         await mongodb.db.otp_codes.delete_many({
             "username": username,
             "used": False
         })
-        
-        # ????? OTP ????
+
         await mongodb.db.otp_codes.insert_one(otp_doc)
-        
+
         logger.info(f"?? OTP created for {username}: {otp_code} (expires in {OTPService.OTP_EXPIRY_MINUTES} min)")
-        
+
         return otp_code
-    
+
     @staticmethod
     async def verify_otp(username: str, otp_code: str, ip_address: str = None) -> Dict:
-        """
-        ????? ?? OTP
-        
-        Returns:
-            dict: {"valid": bool, "message": str}
-        """
-        # ???? ???? OTP
+
         otp_doc = await mongodb.db.otp_codes.find_one({
             "username": username,
             "otp_code": otp_code,
             "used": False
         })
-        
+
         if not otp_doc:
             logger.warning(f"?? Invalid OTP attempt for {username}: {otp_code}")
             return {
                 "valid": False,
                 "message": "Invalid or expired OTP code"
             }
-        
-        # ????? ?????
+
         if datetime.utcnow() > otp_doc["expires_at"]:
             logger.warning(f"? Expired OTP attempt for {username}")
             await mongodb.db.otp_codes.update_one(
@@ -92,8 +68,7 @@ class OTPService:
                 "valid": False,
                 "message": "OTP code has expired"
             }
-        
-        # ????? ????? ??????? (?????? 3 ???)
+
         if otp_doc.get("attempts", 0) >= 3:
             logger.warning(f"?? Too many OTP attempts for {username}")
             await mongodb.db.otp_codes.update_one(
@@ -104,8 +79,7 @@ class OTPService:
                 "valid": False,
                 "message": "Too many failed attempts. Please request a new code."
             }
-        
-        # ??????????? ?? ????? ??????? ???
+
         await mongodb.db.otp_codes.update_one(
             {"_id": otp_doc["_id"]},
             {
@@ -116,40 +90,34 @@ class OTPService:
                 }
             }
         )
-        
+
         logger.info(f"? OTP verified successfully for {username}")
-        
+
         return {
             "valid": True,
             "message": "OTP verified successfully"
         }
-    
+
     @staticmethod
     async def increment_attempts(username: str, otp_code: str):
-        """?????? ????? ???????? ??????"""
         await mongodb.db.otp_codes.update_one(
             {"username": username, "otp_code": otp_code, "used": False},
             {"$inc": {"attempts": 1}}
         )
-    
+
     @staticmethod
     async def cleanup_expired_otps():
-        """
-        ??????? OTP ??? ????? ???
-        ??? ??? ??????? ???? ?? cron job ?? background task ???? ???
-        """
         result = await mongodb.db.otp_codes.delete_many({
             "expires_at": {"$lt": datetime.utcnow()}
         })
-        
+
         if result.deleted_count > 0:
             logger.info(f"?? Cleaned up {result.deleted_count} expired OTP codes")
-        
+
         return result.deleted_count
-    
+
     @staticmethod
     async def get_otp_stats(username: str) -> Dict:
-        """?????? ???? OTP ??? ?? ?????"""
         pipeline = [
             {"$match": {"username": username}},
             {
@@ -169,12 +137,12 @@ class OTPService:
                 }
             }
         ]
-        
+
         result = await mongodb.db.otp_codes.aggregate(pipeline).to_list(length=1)
-        
+
         if result:
             return result[0]
-        
+
         return {"total": 0, "used": 0, "expired": 0}
 
 otp_service = OTPService()

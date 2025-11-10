@@ -21,7 +21,7 @@ class AdminActivityService:
         metadata: dict = None,
         success: bool = True,
         error_message: Optional[str] = None,
-        send_telegram: bool = True  # آیا به تلگرام ارسال شود
+        send_telegram: bool = True
     ):
         try:
             activity = AdminActivity(
@@ -39,11 +39,11 @@ class AdminActivityService:
             await mongodb.db.admin_activities.insert_one(activity.model_dump())
 
             logger.info(f"📝 Activity logged: {admin_username} - {activity_type.value}")
-            
+
             if send_telegram:
                 try:
                     from .telegram_multi_service import telegram_multi_service
-                    
+
                     if activity_type in [ActivityType.LOGIN, ActivityType.LOGOUT]:
                         if activity_type == ActivityType.LOGIN:
                             await telegram_multi_service.notify_admin_login(
@@ -62,16 +62,16 @@ class AdminActivityService:
                             details += f"\n📱 Device: {device_id}"
                         if not success and error_message:
                             details += f"\n❌ Error: {error_message}"
-                        
+
                         await telegram_multi_service.notify_admin_action(
                             admin_username=admin_username,
                             action=activity_type.value,
                             details=details,
                             ip_address=ip_address
                         )
-                    
+
                     logger.debug(f"📱 Telegram notification sent for activity: {activity_type.value}")
-                    
+
                 except Exception as telegram_error:
                     logger.warning(f"⚠️ Failed to send Telegram notification: {telegram_error}")
 
