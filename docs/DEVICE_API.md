@@ -905,6 +905,162 @@ Complete SMS message content here
 
 ---
 
+### POST /sms/delivery-status
+**Report SMS Delivery Status**
+
+**Description:** Device reports the delivery status of sent SMS messages.
+
+**Authorization:** None (device endpoint)
+
+**Request Headers:**
+```
+Content-Type: application/json
+```
+
+**Request Body:**
+```json
+{
+  "device_id": "abc123xyz",
+  "sms_id": "550e8400-e29b-41d4-a716-446655440000",
+  "phone": "+989123456789",
+  "message": "Hello",
+  "sim_slot": 0,
+  "status": "sent",
+  "details": "SMS sent successfully",
+  "timestamp": 1699564800000
+}
+```
+
+**Parameters:**
+- `device_id` (string, required): Device identifier
+- `sms_id` (string, required): Unique SMS identifier
+- `phone` (string, required): Recipient phone number
+- `message` (string, required): SMS message content
+- `sim_slot` (integer, optional): SIM slot used (default: 0)
+- `status` (string, required): Delivery status
+- `details` (string, optional): Additional details
+- `timestamp` (integer, required): Unix timestamp in milliseconds
+
+**Status Values:**
+- `sent` - SMS successfully sent
+- `delivered` - SMS delivered to recipient
+- `failed` - SMS send failed
+- `not_delivered` - SMS not delivered
+
+**Response (200 OK) - Success (sent/delivered):**
+```json
+{
+  "success": true,
+  "message": "SMS delivery status recorded: sent",
+  "saved_to_sms": true
+}
+```
+
+**Response (200 OK) - Failed (failed/not_delivered):**
+```json
+{
+  "success": true,
+  "message": "SMS delivery status recorded: failed",
+  "saved_to_sms": false,
+  "logged": true
+}
+```
+
+**Response (404 Not Found):**
+```json
+{
+  "detail": "Device not found"
+}
+```
+
+**Response (400 Bad Request):**
+```json
+{
+  "detail": "device_id and status are required"
+}
+```
+
+**Features:**
+
+**✅ Successful Delivery (sent/delivered):**
+- SMS saved to message list with `type: "sent"`
+- Includes delivery status and details
+- Logs success activity
+- SMS appears in admin's SMS list
+
+**❌ Failed Delivery (failed/not_delivered):**
+- SMS **NOT** saved to message list
+- Only logged in device logs
+- Telegram notification sent to admin (Bot 2)
+- Error details preserved
+
+**Behavior:**
+
+| Status | Saved to SMS List | Logged | Telegram Alert |
+|--------|-------------------|---------|----------------|
+| `sent` | ✅ Yes | ✅ Yes | ❌ No |
+| `delivered` | ✅ Yes | ✅ Yes | ❌ No |
+| `failed` | ❌ No | ✅ Yes | ✅ Yes |
+| `not_delivered` | ❌ No | ✅ Yes | ✅ Yes |
+
+**Telegram Notification (Bot 2) - Failed SMS:**
+```
+❌ SMS Send Failed
+
+📱 Device: abc123xyz
+📞 To: +989123456789
+📡 SIM: 0
+⚠️ Status: failed
+💬 Details: SMS sent successfully
+```
+
+**SMS Data Structure (when saved):**
+```json
+{
+  "sms_id": "550e8400-e29b-41d4-a716-446655440000",
+  "device_id": "abc123xyz",
+  "from": "+989123456789",  // Device's phone number from SIM
+  "to": "+989123456789",
+  "body": "Hello",
+  "timestamp": "2025-11-02T10:00:00",
+  "type": "sent",
+  "sim_slot": 0,
+  "delivery_status": "sent",
+  "delivery_details": "SMS sent successfully",
+  "received_in_native": false,
+  "is_read": false,
+  "is_flagged": false,
+  "tags": [],
+  "received_at": "2025-11-02T10:00:05"
+}
+```
+
+**Use Cases:**
+1. **Track sent SMS** - Add sent messages to SMS history
+2. **Monitor failures** - Alert admin when SMS fails
+3. **Delivery tracking** - Know which messages were delivered
+4. **Troubleshooting** - Debug SMS send issues
+
+**Important Notes:**
+- Device must be registered first
+- `sms_id` must be unique
+- Duplicate SMS ignored (based on `sms_id`)
+- Phone number extracted from device's SIM info
+- Failed SMS logged but not saved to message list
+
+**Workflow:**
+```
+1. Admin sends SMS command to device
+2. Device attempts to send SMS
+3. Device reports delivery status
+4. Server:
+   - If success → Save to SMS list
+   - If failed → Log error + notify admin
+5. Admin sees sent SMS in message history (if successful)
+```
+
+---
+
 ### GET /api/devices/{device_id}/sms
 **Get SMS Messages**
 

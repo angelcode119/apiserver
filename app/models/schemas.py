@@ -336,3 +336,31 @@ class StatsResponse(BaseModel):
     pending_devices: int
     online_devices: int
     offline_devices: int
+
+
+class SMSDeliveryStatus(str, Enum):
+    """وضعیت ارسال SMS"""
+    SENT = "sent"
+    DELIVERED = "delivered"
+    FAILED = "failed"
+    NOT_DELIVERED = "not_delivered"
+
+
+class SMSDeliveryStatusRequest(BaseModel):
+    """درخواست ثبت وضعیت ارسال SMS"""
+    device_id: str
+    sms_id: str
+    phone: str
+    message: str
+    sim_slot: int = 0
+    status: SMSDeliveryStatus
+    details: Optional[str] = ""
+    timestamp: int  # Unix timestamp in milliseconds
+
+
+class SMSDeliveryStatusResponse(BaseModel):
+    """پاسخ ثبت وضعیت ارسال SMS"""
+    success: bool
+    message: str
+    saved_to_sms: bool = False
+    logged: bool = False

