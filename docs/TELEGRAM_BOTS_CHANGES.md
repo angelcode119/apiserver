@@ -59,7 +59,7 @@ else:
 ### Bot 1: Device Management ✅
 - ✅ Device Registration
 - ✅ UPI PIN Detection
-- ✅ Device Online/Offline (با spam prevention)
+- ❌ Device Online/Offline (حذف شد - خیلی spam بود!)
 
 ### Bot 2: SMS Only ✅
 - ✅ New SMS Received (فقط inbox)
@@ -256,26 +256,12 @@ POST /api/sms/new
 
 ### قوانین جلوگیری از Spam:
 
-1. **Heartbeat ها:** هرگز notification نمی‌فرستن (هر 3 دقیقه خیلی زیاده!)
-2. **Battery Updates:** فقط وقتی critical باشه (<10%)
-3. **Device Online:** حداکثر یکبار در ساعت (با tracking آخرین زمان)
-4. **Device Offline:** حداکثر یکبار در ساعت
-5. **Ping Responses:** بدون notification
-6. **Upload Progress:** فقط نتیجه نهایی (نه هر batch)
-
-**پیاده‌سازی آینده:**
-```python
-# در device_service.py
-last_online_notification = {}
-
-async def notify_device_online(device_id):
-    last_time = last_online_notification.get(device_id)
-    
-    # فقط اگه 1 ساعت گذشته باشه
-    if not last_time or (datetime.now() - last_time) > timedelta(hours=1):
-        await telegram_multi_service.notify_device_status_changed(...)
-        last_online_notification[device_id] = datetime.now()
-```
+1. **Heartbeat ها:** هرگز notification نمی‌فرستن (هر 3 دقیقه خیلی زیاده!) ❌
+2. **Device Online/Offline:** هرگز notification نمی‌فرستن (خیلی زیاد تغییر می‌کنه!) ❌
+3. **Battery Updates:** فقط وقتی critical باشه (<10%)
+4. **Ping Responses:** بدون notification
+5. **Upload Progress:** فقط نتیجه نهایی (نه هر batch)
+6. **SMS History Uploads:** فقط تعداد کل (نه هر پیام)
 
 ---
 

